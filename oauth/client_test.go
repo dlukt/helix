@@ -3,6 +3,7 @@ package oauth_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -53,6 +54,55 @@ func TestClientAuthorizationURLBuildsDocumentedQuery(t *testing.T) {
 	}
 	if got := parsed.Query().Get("force_verify"); got != "true" {
 		t.Fatalf("force_verify = %q, want %q", got, "true")
+	}
+}
+
+func TestClientImplicitAuthorizationURLAndCallbackParsing(t *testing.T) {
+	t.Parallel()
+
+	client := oauth.NewClient(oauth.Config{
+		ClientID: "client-id",
+		BaseURL:  "https://id.twitch.tv/oauth2",
+	})
+
+	authURL := client.ImplicitAuthorizationURL(oauth.ImplicitAuthorizationURLParams{
+		RedirectURI: "https://example.com/callback",
+		Scopes:      []string{"chat:read", "chat:edit"},
+		State:       "opaque-state",
+		ForceVerify: true,
+	})
+
+	parsed, err := url.Parse(authURL)
+	if err != nil {
+		t.Fatalf("Parse(authURL) error = %v", err)
+	}
+	if got := parsed.Query().Get("response_type"); got != "token" {
+		t.Fatalf("response_type = %q, want %q", got, "token")
+	}
+
+	callback, err := oauth.ParseImplicitCallbackFragment("#access_token=access-token&scope=chat:read+chat:edit&state=opaque-state&token_type=bearer&expires_in=3600")
+	if err != nil {
+		t.Fatalf("ParseImplicitCallbackFragment() error = %v", err)
+	}
+	if got := callback.AccessToken; got != "access-token" {
+		t.Fatalf("AccessToken = %q, want %q", got, "access-token")
+	}
+	if got := callback.TokenType; got != "bearer" {
+		t.Fatalf("TokenType = %q, want %q", got, "bearer")
+	}
+	if len(callback.Scopes) != 2 || callback.Scopes[0] != "chat:read" || callback.Scopes[1] != "chat:edit" {
+		t.Fatalf("Scopes = %v, want [chat:read chat:edit]", callback.Scopes)
+	}
+
+	denied, err := oauth.ParseImplicitCallbackFragment("https://example.com/callback?error=access_denied&error_description=The+user+denied+you+access")
+	if err != nil {
+		t.Fatalf("ParseImplicitCallbackFragment(query denial) error = %v", err)
+	}
+	if got := denied.ErrorCode; got != "access_denied" {
+		t.Fatalf("ErrorCode = %q, want %q", got, "access_denied")
+	}
+	if got := denied.ErrorDescription; got != "The user denied you access" {
+		t.Fatalf("ErrorDescription = %q, want %q", got, "The user denied you access")
 	}
 }
 
@@ -267,6 +317,9 @@ func TestClientDeviceCodeFlowUsesDocumentedEndpoints(t *testing.T) {
 	if got := deviceCode.DeviceCode; got != "device-code" {
 		t.Fatalf("DeviceCode = %q, want %q", got, "device-code")
 	}
+	if deviceCode.IssuedAt.IsZero() {
+		t.Fatal("IssuedAt = zero, want non-zero timestamp")
+	}
 
 	token, err := client.ExchangeDeviceCode(context.Background(), oauth.DeviceCodeExchange{
 		DeviceCode: deviceCode.DeviceCode,
@@ -325,5 +378,145 @@ func TestClientRefreshTokenOmitsClientSecretForPublicClients(t *testing.T) {
 	}
 	if got := token.AccessToken; got != "refreshed-access-token" {
 		t.Fatalf("AccessToken = %q, want %q", got, "refreshed-access-token")
+	}
+}
+
+func TestClientPollDeviceAuthorizationHandlesPendingAndSlowDown(t *testing.T) {
+	t.Parallel()
+
+	var tokenCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		switch r.URL.Path {
+		case "/token":
+			tokenCalls++
+			w.Header().Set("Content-Type", "application/json")
+			switch tokenCalls {
+			case 1:
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"status":  400,
+					"message": "authorization_pending",
+				})
+			case 2:
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"status":  400,
+					"message": "slow_down",
+				})
+			default:
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"access_token":  "device-access-token",
+					"refresh_token": "device-refresh-token",
+					"expires_in":    14400,
+					"scope":         []string{"chat:read", "chat:edit"},
+					"token_type":    "bearer",
+				})
+			}
+		default:
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := oauth.NewClient(oauth.Config{
+		ClientID: "client-id",
+		BaseURL:  server.URL,
+	})
+
+	token, err := client.PollDeviceAuthorization(context.Background(), oauth.DeviceAuthorization{
+		DeviceCode: "device-code",
+		ExpiresIn:  30,
+		Interval:   0,
+	}, []string{"chat:read", "chat:edit"})
+	if err != nil {
+		t.Fatalf("PollDeviceAuthorization() error = %v", err)
+	}
+	if got := token.AccessToken; got != "device-access-token" {
+		t.Fatalf("AccessToken = %q, want %q", got, "device-access-token")
+	}
+	if got := tokenCalls; got != 3 {
+		t.Fatalf("tokenCalls = %d, want 3", got)
+	}
+}
+
+func TestClientPollDeviceAuthorizationReturnsExpiredForStaleDeviceCode(t *testing.T) {
+	t.Parallel()
+
+	var tokenCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		tokenCalls++
+		t.Fatalf("PollDeviceAuthorization() polled /token after device code expiry")
+	}))
+	defer server.Close()
+
+	client := oauth.NewClient(oauth.Config{
+		ClientID: "client-id",
+		BaseURL:  server.URL,
+	})
+
+	_, err := client.PollDeviceAuthorization(context.Background(), oauth.DeviceAuthorization{
+		DeviceCode: "device-code",
+		ExpiresIn:  1,
+		Interval:   5,
+		IssuedAt:   time.Now().Add(-2 * time.Second),
+	}, []string{"chat:read"})
+	if !errors.Is(err, oauth.ErrDeviceCodeExpired) {
+		t.Fatalf("PollDeviceAuthorization() error = %v, want ErrDeviceCodeExpired", err)
+	}
+	if tokenCalls != 0 {
+		t.Fatalf("tokenCalls = %d, want 0", tokenCalls)
+	}
+}
+
+func TestClientValidateAndRevokeReturnTypedErrors(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/validate":
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status":  401,
+				"message": "invalid access token",
+			})
+		case "/revoke":
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status":  400,
+				"message": "invalid token",
+			})
+		default:
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := oauth.NewClient(oauth.Config{
+		ClientID: "client-id",
+		BaseURL:  server.URL,
+	})
+
+	_, err := client.ValidateToken(context.Background(), "access-token")
+	if !errors.Is(err, oauth.ErrValidateUnauthorized) {
+		t.Fatalf("ValidateToken() error = %v, want ErrValidateUnauthorized", err)
+	}
+
+	err = client.RevokeToken(context.Background(), "access-token")
+	if err == nil {
+		t.Fatal("RevokeToken() error = nil, want typed error")
+	}
+	var oauthErr *oauth.ErrorResponse
+	if !errors.As(err, &oauthErr) {
+		t.Fatalf("RevokeToken() error type = %T, want *oauth.ErrorResponse", err)
+	}
+	if got := oauthErr.Message; got != "invalid token" {
+		t.Fatalf("Message = %q, want %q", got, "invalid token")
 	}
 }

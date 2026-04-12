@@ -15,6 +15,8 @@ import (
 
 const maxWebhookBodyBytes = 1 << 20
 
+const defaultTimestampSkew = 10 * time.Minute
+
 // ReservationState describes the outcome of reserving a message ID.
 type ReservationState uint8
 
@@ -46,9 +48,17 @@ type dedupEntry struct {
 
 // NewMemoryDeduplicator creates an in-memory deduplicator.
 func NewMemoryDeduplicator() *MemoryDeduplicator {
+	return NewMemoryDeduplicatorWithTTL(10 * time.Minute)
+}
+
+// NewMemoryDeduplicatorWithTTL creates an in-memory deduplicator with a custom expiry.
+func NewMemoryDeduplicatorWithTTL(ttl time.Duration) *MemoryDeduplicator {
+	if ttl <= 0 {
+		ttl = 10 * time.Minute
+	}
 	return &MemoryDeduplicator{
 		now:  time.Now,
-		ttl:  10 * time.Minute,
+		ttl:  ttl,
 		seen: map[string]dedupEntry{},
 	}
 }
@@ -96,24 +106,27 @@ func (d *MemoryDeduplicator) cleanupExpiredLocked(now time.Time) {
 
 // WebhookHandlerConfig configures a WebhookHandler.
 type WebhookHandlerConfig struct {
-	Secret         string
-	Registry       Registry
-	Deduplicator   Deduplicator
-	OnChallenge    func(context.Context, Challenge) error
-	OnNotification func(context.Context, Notification) error
-	OnRevocation   func(context.Context, Revocation) error
-	Now            func() time.Time
+	Secret           string
+	Registry         Registry
+	Deduplicator     Deduplicator
+	DeduplicationTTL time.Duration
+	MaxTimestampSkew time.Duration
+	OnChallenge      func(context.Context, Challenge) error
+	OnNotification   func(context.Context, Notification) error
+	OnRevocation     func(context.Context, Revocation) error
+	Now              func() time.Time
 }
 
 // WebhookHandler verifies and dispatches EventSub webhook requests.
 type WebhookHandler struct {
-	secret         string
-	registry       Registry
-	deduplicator   Deduplicator
-	onChallenge    func(context.Context, Challenge) error
-	onNotification func(context.Context, Notification) error
-	onRevocation   func(context.Context, Revocation) error
-	now            func() time.Time
+	secret           string
+	registry         Registry
+	deduplicator     Deduplicator
+	onChallenge      func(context.Context, Challenge) error
+	onNotification   func(context.Context, Notification) error
+	onRevocation     func(context.Context, Revocation) error
+	now              func() time.Time
+	maxTimestampSkew time.Duration
 }
 
 // NewWebhookHandler constructs a webhook handler.
@@ -124,20 +137,25 @@ func NewWebhookHandler(cfg WebhookHandlerConfig) *WebhookHandler {
 	}
 	deduplicator := cfg.Deduplicator
 	if deduplicator == nil {
-		deduplicator = NewMemoryDeduplicator()
+		deduplicator = NewMemoryDeduplicatorWithTTL(cfg.DeduplicationTTL)
 	}
 	now := cfg.Now
 	if now == nil {
 		now = time.Now
 	}
+	maxTimestampSkew := cfg.MaxTimestampSkew
+	if maxTimestampSkew <= 0 {
+		maxTimestampSkew = defaultTimestampSkew
+	}
 	return &WebhookHandler{
-		secret:         cfg.Secret,
-		registry:       registry,
-		deduplicator:   deduplicator,
-		onChallenge:    cfg.OnChallenge,
-		onNotification: cfg.OnNotification,
-		onRevocation:   cfg.OnRevocation,
-		now:            now,
+		secret:           cfg.Secret,
+		registry:         registry,
+		deduplicator:     deduplicator,
+		onChallenge:      cfg.OnChallenge,
+		onNotification:   cfg.OnNotification,
+		onRevocation:     cfg.OnRevocation,
+		now:              now,
+		maxTimestampSkew: maxTimestampSkew,
 	}
 }
 
@@ -158,7 +176,13 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	messageID := r.Header.Get("Twitch-Eventsub-Message-Id")
 	timestamp := r.Header.Get("Twitch-Eventsub-Message-Timestamp")
-	if !h.verify(messageID, timestamp, r.Header.Get("Twitch-Eventsub-Message-Signature"), body) {
+	signature := r.Header.Get("Twitch-Eventsub-Message-Signature")
+	messageType := r.Header.Get("Twitch-Eventsub-Message-Type")
+	if messageID == "" || timestamp == "" || signature == "" || messageType == "" {
+		http.Error(w, "missing required eventsub headers", http.StatusBadRequest)
+		return
+	}
+	if !h.verify(messageID, timestamp, signature, body) {
 		http.Error(w, "invalid signature", http.StatusUnauthorized)
 		return
 	}
@@ -167,7 +191,6 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageType := r.Header.Get("Twitch-Eventsub-Message-Type")
 	shouldDeduplicate := messageType != "webhook_callback_verification"
 	reserved := false
 	if shouldDeduplicate && h.deduplicator != nil {
@@ -301,6 +324,5 @@ func (h *WebhookHandler) timestampIsFresh(raw string) bool {
 	}
 
 	now := h.now()
-	const maxSkew = 5 * time.Minute
-	return !timestamp.Before(now.Add(-maxSkew)) && !timestamp.After(now.Add(maxSkew))
+	return !timestamp.Before(now.Add(-h.maxTimestampSkew)) && !timestamp.After(now.Add(h.maxTimestampSkew))
 }

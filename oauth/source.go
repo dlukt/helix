@@ -13,6 +13,30 @@ type TokenStore interface {
 	Save(context.Context, Token) error
 }
 
+// ForceRefreshSource decorates a token source with an invalidation callback.
+type ForceRefreshSource struct {
+	next       TokenSource
+	invalidate func(context.Context, string) bool
+}
+
+// NewForceRefreshSource wraps a token source so callers can trigger a refresh after a 401.
+func NewForceRefreshSource(next TokenSource, invalidate func(context.Context, string) bool) *ForceRefreshSource {
+	return &ForceRefreshSource{next: next, invalidate: invalidate}
+}
+
+// Token delegates to the wrapped source.
+func (s *ForceRefreshSource) Token(ctx context.Context) (Token, error) {
+	return s.next.Token(ctx)
+}
+
+// InvalidateToken forwards invalidation to the configured callback.
+func (s *ForceRefreshSource) InvalidateToken(ctx context.Context, accessToken string) bool {
+	if s.invalidate == nil {
+		return false
+	}
+	return s.invalidate(ctx, accessToken)
+}
+
 // AppSource lazily acquires and caches an app access token.
 type AppSource struct {
 	client *Client

@@ -266,6 +266,32 @@ func TestRefreshingUserSourceIgnoresStaleTokenInvalidation(t *testing.T) {
 	}
 }
 
+func TestForceRefreshSourceWrapsPlainTokenSource(t *testing.T) {
+	t.Parallel()
+
+	var invalidated string
+	source := oauth.NewForceRefreshSource(oauth.StaticSource{
+		Value: oauth.Token{AccessToken: "access-token"},
+	}, func(_ context.Context, accessToken string) bool {
+		invalidated = accessToken
+		return true
+	})
+
+	token, err := source.Token(context.Background())
+	if err != nil {
+		t.Fatalf("Token() error = %v", err)
+	}
+	if got := token.AccessToken; got != "access-token" {
+		t.Fatalf("AccessToken = %q, want %q", got, "access-token")
+	}
+	if ok := source.InvalidateToken(context.Background(), "access-token"); !ok {
+		t.Fatal("InvalidateToken() = false, want true")
+	}
+	if got := invalidated; got != "access-token" {
+		t.Fatalf("invalidated = %q, want %q", got, "access-token")
+	}
+}
+
 func TestValidatingSourceValidatesAtMostHourly(t *testing.T) {
 	t.Parallel()
 

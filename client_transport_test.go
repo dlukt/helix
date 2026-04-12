@@ -94,8 +94,57 @@ func TestClientReturnsRateLimitedAPIErrorWithResetTime(t *testing.T) {
 	if got := apiErr.StatusCode; got != http.StatusTooManyRequests {
 		t.Fatalf("StatusCode = %d, want %d", got, http.StatusTooManyRequests)
 	}
+	if got := apiErr.ErrorCode; got != "Too Many Requests" {
+		t.Fatalf("ErrorCode = %q, want %q", got, "Too Many Requests")
+	}
+	if got := apiErr.Message; got != "rate limited" {
+		t.Fatalf("Message = %q, want %q", got, "rate limited")
+	}
 	if got := apiErr.RateLimit.ResetAt; !got.Equal(resetAt) {
 		t.Fatalf("RateLimit.ResetAt = %s, want %s", got, resetAt)
+	}
+}
+
+func TestClientPropagatesRequestIDAndCustomHeaders(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		if got := r.Header.Get("X-Custom-Header"); got != "custom-value" {
+			t.Fatalf("X-Custom-Header = %q, want %q", got, "custom-value")
+		}
+		w.Header().Set("Request-Id", "request-123")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{
+				{"id": "123", "login": "darko", "display_name": "Darko"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client, err := helix.New(helix.Config{
+		ClientID: "client-id",
+		BaseURL:  server.URL,
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	var data []helix.User
+	meta, err := client.Do(context.Background(), helix.RawRequest{
+		Method: http.MethodGet,
+		Path:   "/users",
+		Header: http.Header{"X-Custom-Header": []string{"custom-value"}},
+	}, &struct {
+		Data []helix.User `json:"data"`
+	}{Data: data})
+	if err != nil {
+		t.Fatalf("Do() error = %v", err)
+	}
+	if got := meta.RequestID; got != "request-123" {
+		t.Fatalf("RequestID = %q, want %q", got, "request-123")
 	}
 }
 

@@ -470,7 +470,34 @@ func TestWebhookHandlerRejectsStaleTimestamps(t *testing.T) {
 	}
 }
 
-func TestWebhookHandlerRejectsTimestampsOutsideFiveMinuteWindow(t *testing.T) {
+func TestWebhookHandlerRejectsRequestsMissingRequiredHeaders(t *testing.T) {
+	t.Parallel()
+
+	handler := eventsub.NewWebhookHandler(eventsub.WebhookHandlerConfig{
+		Secret: "super-secret",
+		Now: func() time.Time {
+			return time.Date(2024, 4, 11, 12, 5, 0, 0, time.UTC)
+		},
+	})
+
+	body := []byte(`{
+		"subscription":{"type":"channel.follow","version":"2"},
+		"event":{"user_id":"777"}
+	}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	signWebhook(req, "super-secret", "message-1", "2024-04-11T12:00:00Z", body, "notification")
+	req.Header.Del("Twitch-Eventsub-Message-Type")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if got := rec.Code; got != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", got, http.StatusBadRequest)
+	}
+}
+
+func TestWebhookHandlerRejectsTimestampsOutsideDefaultTenMinuteWindow(t *testing.T) {
 	t.Parallel()
 
 	handler := eventsub.NewWebhookHandler(eventsub.WebhookHandlerConfig{
@@ -491,11 +518,11 @@ func TestWebhookHandlerRejectsTimestampsOutsideFiveMinuteWindow(t *testing.T) {
 	}{
 		{
 			name:      "too old",
-			timestamp: "2024-04-11T11:59:59Z",
+			timestamp: "2024-04-11T11:54:59Z",
 		},
 		{
 			name:      "too far in future",
-			timestamp: "2024-04-11T12:10:01Z",
+			timestamp: "2024-04-11T12:15:01Z",
 		},
 	}
 
@@ -511,6 +538,32 @@ func TestWebhookHandlerRejectsTimestampsOutsideFiveMinuteWindow(t *testing.T) {
 				t.Fatalf("status = %d, want %d", got, http.StatusUnauthorized)
 			}
 		})
+	}
+}
+
+func TestWebhookHandlerUsesConfiguredTimestampSkew(t *testing.T) {
+	t.Parallel()
+
+	handler := eventsub.NewWebhookHandler(eventsub.WebhookHandlerConfig{
+		Secret:           "super-secret",
+		MaxTimestampSkew: time.Minute,
+		Now: func() time.Time {
+			return time.Date(2024, 4, 11, 12, 5, 0, 0, time.UTC)
+		},
+	})
+
+	body := []byte(`{
+		"subscription":{"type":"channel.follow","version":"2"},
+		"event":{"user_id":"777"}
+	}`)
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	signWebhook(req, "super-secret", "message-1", "2024-04-11T12:03:30Z", body, "notification")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if got := rec.Code; got != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", got, http.StatusUnauthorized)
 	}
 }
 

@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
+	helixapi "github.com/dlukt/helix"
 	"github.com/gorilla/websocket"
 )
 
@@ -23,10 +25,22 @@ type WebSocketClientConfig struct {
 	Dialer             *websocket.Dialer
 	WelcomeTimeout     time.Duration
 	Registry           Registry
+	Recovery           *WebSocketRecoveryConfig
 	OnSessionWelcome   func(context.Context, WebSocketSession) error
 	OnSessionReconnect func(context.Context, WebSocketSession) error
 	OnNotification     func(context.Context, Notification) error
 	OnRevocation       func(context.Context, Revocation) error
+}
+
+// SubscriptionAPI is the subset of the Helix EventSub API required for recovery.
+type SubscriptionAPI interface {
+	Create(context.Context, helixapi.CreateEventSubSubscriptionRequest) (*helixapi.CreateEventSubSubscriptionResponse, *helixapi.Response, error)
+	List(context.Context, helixapi.ListEventSubSubscriptionsParams) (*helixapi.ListEventSubSubscriptionsResponse, *helixapi.Response, error)
+}
+
+// WebSocketRecoveryConfig enables hard-disconnect recovery and subscription recreation.
+type WebSocketRecoveryConfig struct {
+	Subscriptions SubscriptionAPI
 }
 
 // WebSocketSession describes a WebSocket EventSub session.
@@ -43,10 +57,25 @@ type WebSocketClient struct {
 	dialer             *websocket.Dialer
 	welcomeTimeout     time.Duration
 	registry           Registry
+	recovery           *WebSocketRecoveryConfig
 	onSessionWelcome   func(context.Context, WebSocketSession) error
 	onSessionReconnect func(context.Context, WebSocketSession) error
 	onNotification     func(context.Context, Notification) error
 	onRevocation       func(context.Context, Revocation) error
+}
+
+// WebSocketCloseError is returned for documented EventSub websocket close codes.
+type WebSocketCloseError struct {
+	Code        int
+	Reason      string
+	Recoverable bool
+}
+
+func (e *WebSocketCloseError) Error() string {
+	if e.Reason != "" {
+		return fmt.Sprintf("eventsub: websocket closed with code %d: %s", e.Code, e.Reason)
+	}
+	return fmt.Sprintf("eventsub: websocket closed with code %d", e.Code)
 }
 
 // NewWebSocketClient creates a new WebSocket EventSub client.
@@ -64,6 +93,7 @@ func NewWebSocketClient(cfg WebSocketClientConfig) *WebSocketClient {
 		dialer:             dialer,
 		welcomeTimeout:     cfg.WelcomeTimeout,
 		registry:           registry,
+		recovery:           cfg.Recovery,
 		onSessionWelcome:   cfg.OnSessionWelcome,
 		onSessionReconnect: cfg.OnSessionReconnect,
 		onNotification:     cfg.OnNotification,
@@ -85,6 +115,7 @@ func (c *WebSocketClient) Run(ctx context.Context) error {
 
 	var keepaliveTimeout time.Duration
 	awaitingWelcome := true
+	var currentSession WebSocketSession
 
 	for {
 		readTimeout := keepaliveTimeout
@@ -100,11 +131,11 @@ func (c *WebSocketClient) Run(ctx context.Context) error {
 				if awaitingWelcome {
 					return err
 				}
-				nextConn, session, err := c.connectAndAwaitWelcome(ctx, c.url, c.reconnectWelcomeTimeout(keepaliveTimeout))
+				nextConn, session, err := c.recoverConnection(ctx, currentSession.ID, keepaliveTimeout)
 				if err != nil {
 					return err
 				}
-				if c.onSessionWelcome != nil {
+				if c.shouldDispatchRecoveredWelcome() && c.onSessionWelcome != nil {
 					if err := c.onSessionWelcome(ctx, session); err != nil {
 						nextConn.Close()
 						return err
@@ -112,14 +143,36 @@ func (c *WebSocketClient) Run(ctx context.Context) error {
 				}
 				conn.Close()
 				conn = nextConn
+				currentSession = session
 				keepaliveTimeout = keepaliveDuration(session)
 				continue
 			}
-			return err
+			if awaitingWelcome || !c.shouldRecover(err, currentSession.ID) {
+				return err
+			}
+			nextConn, session, recoverErr := c.recoverConnection(ctx, currentSession.ID, keepaliveTimeout)
+			if recoverErr != nil {
+				return recoverErr
+			}
+			if c.shouldDispatchRecoveredWelcome() && c.onSessionWelcome != nil {
+				if err := c.onSessionWelcome(ctx, session); err != nil {
+					nextConn.Close()
+					return err
+				}
+			}
+			conn.Close()
+			conn = nextConn
+			currentSession = session
+			keepaliveTimeout = keepaliveDuration(session)
+			continue
 		}
 		awaitingWelcome = false
+		if message.Metadata.MessageType == "session_welcome" && message.Payload.Session.ID != "" {
+			currentSession = message.Payload.Session
+		}
 		if next := keepaliveDuration(message.Payload.Session); next > 0 {
 			keepaliveTimeout = next
+			currentSession = message.Payload.Session
 		}
 		if message.Metadata.MessageType == "session_reconnect" {
 			nextConn, session, err := c.awaitReconnect(ctx, conn, keepaliveTimeout, message.Payload.Session.ReconnectURL)
@@ -134,6 +187,7 @@ func (c *WebSocketClient) Run(ctx context.Context) error {
 			}
 			conn.Close()
 			conn = nextConn
+			currentSession = session
 			keepaliveTimeout = keepaliveDuration(session)
 			continue
 		}
@@ -410,7 +464,7 @@ func startRead(conn *websocket.Conn, keepaliveTimeout time.Duration) (<-chan rea
 	go func() {
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
-			done <- readResult{err: err}
+			done <- readResult{err: classifyWebSocketError(err)}
 			return
 		}
 		var envelope webSocketEnvelope
@@ -430,6 +484,10 @@ func (c *WebSocketClient) reconnectWelcomeTimeout(keepaliveTimeout time.Duration
 	return c.resolveWelcomeTimeout()
 }
 
+func (c *WebSocketClient) shouldDispatchRecoveredWelcome() bool {
+	return c.recovery == nil || c.recovery.Subscriptions == nil
+}
+
 func (c *WebSocketClient) resolveWelcomeTimeout() time.Duration {
 	if c.welcomeTimeout > 0 {
 		return c.welcomeTimeout
@@ -447,6 +505,86 @@ func keepaliveDuration(session WebSocketSession) time.Duration {
 func isTimeout(err error) bool {
 	var netErr net.Error
 	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+func (c *WebSocketClient) recoverConnection(ctx context.Context, previousSessionID string, keepaliveTimeout time.Duration) (*websocket.Conn, WebSocketSession, error) {
+	nextConn, session, err := c.connectAndAwaitWelcome(ctx, c.url, c.reconnectWelcomeTimeout(keepaliveTimeout))
+	if err != nil {
+		return nil, WebSocketSession{}, err
+	}
+	if previousSessionID != "" && c.recovery != nil && c.recovery.Subscriptions != nil {
+		if err := c.resubscribe(ctx, previousSessionID, session.ID); err != nil {
+			nextConn.Close()
+			return nil, WebSocketSession{}, err
+		}
+	}
+	return nextConn, session, nil
+}
+
+func (c *WebSocketClient) resubscribe(ctx context.Context, previousSessionID, nextSessionID string) error {
+	after := ""
+	for {
+		resp, _, err := c.recovery.Subscriptions.List(ctx, helixapi.ListEventSubSubscriptionsParams{After: after})
+		if err != nil {
+			return err
+		}
+
+		for _, subscription := range resp.Data {
+			if subscription.Transport.Method != "websocket" || subscription.Transport.SessionID != previousSessionID {
+				continue
+			}
+			_, _, err := c.recovery.Subscriptions.Create(ctx, helixapi.CreateEventSubSubscriptionRequest{
+				Type:      subscription.Type,
+				Version:   subscription.Version,
+				Condition: subscription.Condition,
+				Transport: helixapi.EventSubTransport{
+					Method:    "websocket",
+					SessionID: nextSessionID,
+				},
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		if resp.Pagination.Cursor == "" {
+			return nil
+		}
+		after = resp.Pagination.Cursor
+	}
+}
+
+func (c *WebSocketClient) shouldRecover(err error, currentSessionID string) bool {
+	if currentSessionID == "" {
+		return false
+	}
+	if c.recovery == nil || c.recovery.Subscriptions == nil {
+		return false
+	}
+
+	var closeErr *WebSocketCloseError
+	if errors.As(err, &closeErr) {
+		return closeErr.Recoverable
+	}
+	return errors.Is(err, io.EOF)
+}
+
+func classifyWebSocketError(err error) error {
+	var closeErr *websocket.CloseError
+	if !errors.As(err, &closeErr) {
+		return err
+	}
+
+	recoverable := false
+	switch closeErr.Code {
+	case 4000, 4004, 4005, 4006:
+		recoverable = true
+	}
+	return &WebSocketCloseError{
+		Code:        closeErr.Code,
+		Reason:      closeErr.Text,
+		Recoverable: recoverable,
+	}
 }
 
 type webSocketEnvelope struct {

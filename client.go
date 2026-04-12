@@ -22,8 +22,14 @@ type Config struct {
 	ClientID    string
 	HTTPClient  *http.Client
 	TokenSource oauth.TokenSource
+	Authorizer  RequestAuthorizer
 	BaseURL     string
 	UserAgent   string
+}
+
+// RequestAuthorizer applies authorization or auth-related request headers.
+type RequestAuthorizer interface {
+	Authorize(context.Context, *http.Request) error
 }
 
 // Client is a Twitch Helix client.
@@ -31,6 +37,7 @@ type Client struct {
 	clientID    string
 	httpClient  *http.Client
 	tokenSource oauth.TokenSource
+	authorizer  RequestAuthorizer
 	baseURL     string
 	userAgent   string
 
@@ -54,8 +61,12 @@ func New(cfg Config) (*Client, error) {
 		clientID:    cfg.ClientID,
 		httpClient:  cfg.HTTPClient,
 		tokenSource: cfg.TokenSource,
+		authorizer:  cfg.Authorizer,
 		baseURL:     strings.TrimRight(cfg.BaseURL, "/"),
 		userAgent:   cfg.UserAgent,
+	}
+	if c.authorizer == nil && cfg.TokenSource != nil {
+		c.authorizer = tokenSourceAuthorizer{source: cfg.TokenSource}
 	}
 	c.Users = &UsersService{client: c}
 	c.EventSub = &EventSubService{client: c}
@@ -67,12 +78,14 @@ type RawRequest struct {
 	Method string
 	Path   string
 	Query  url.Values
+	Header http.Header
 	Body   any
 }
 
 // Response wraps shared API response metadata.
 type Response struct {
 	StatusCode int
+	RequestID  string
 	Pagination Pagination
 	RateLimit  RateLimit
 	Header     http.Header
@@ -174,19 +187,21 @@ func (c *Client) newRequest(ctx context.Context, req RawRequest) (*http.Request,
 	}
 	httpReq.Header.Set("Client-Id", c.clientID)
 	httpReq.Header.Set("Accept", "application/json")
+	for name, values := range req.Header {
+		httpReq.Header.Del(name)
+		for _, value := range values {
+			httpReq.Header.Add(name, value)
+		}
+	}
 	if c.userAgent != "" {
 		httpReq.Header.Set("User-Agent", c.userAgent)
 	}
 	if req.Body != nil {
 		httpReq.Header.Set("Content-Type", "application/json")
 	}
-	if c.tokenSource != nil {
-		token, err := c.tokenSource.Token(ctx)
-		if err != nil {
+	if c.authorizer != nil {
+		if err := c.authorizer.Authorize(ctx, httpReq); err != nil {
 			return nil, err
-		}
-		if token.AccessToken != "" {
-			httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
 		}
 	}
 	return httpReq, nil
@@ -195,6 +210,7 @@ func (c *Client) newRequest(ctx context.Context, req RawRequest) (*http.Request,
 func responseFromHTTP(httpResp *http.Response) *Response {
 	meta := &Response{
 		StatusCode: httpResp.StatusCode,
+		RequestID:  httpResp.Header.Get("Request-Id"),
 		Header:     httpResp.Header.Clone(),
 		Raw:        httpResp,
 	}
@@ -251,11 +267,7 @@ func (c *Client) doRaw(ctx context.Context, req RawRequest) (*http.Response, *Re
 			if err != nil {
 				return nil, meta, err
 			}
-			return nil, meta, &APIError{
-				StatusCode: httpResp.StatusCode,
-				Body:       body,
-				RateLimit:  meta.RateLimit,
-			}
+			return nil, meta, decodeAPIError(httpResp.StatusCode, body, meta.RateLimit)
 		}
 		return httpResp, meta, nil
 	}
@@ -266,12 +278,53 @@ func (c *Client) doRaw(ctx context.Context, req RawRequest) (*http.Response, *Re
 // APIError is returned for non-2xx API responses.
 type APIError struct {
 	StatusCode int
+	ErrorCode  string
+	Message    string
 	Body       []byte
 	RateLimit  RateLimit
 }
 
 func (e *APIError) Error() string {
+	if e.ErrorCode != "" && e.Message != "" {
+		return fmt.Sprintf("helix: api error %d %s: %s", e.StatusCode, e.ErrorCode, e.Message)
+	}
+	if e.Message != "" {
+		return fmt.Sprintf("helix: api error %d: %s", e.StatusCode, e.Message)
+	}
 	return fmt.Sprintf("helix: api error %d", e.StatusCode)
+}
+
+type tokenSourceAuthorizer struct {
+	source oauth.TokenSource
+}
+
+func (a tokenSourceAuthorizer) Authorize(ctx context.Context, req *http.Request) error {
+	token, err := a.source.Token(ctx)
+	if err != nil {
+		return err
+	}
+	if token.AccessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	}
+	return nil
+}
+
+func decodeAPIError(statusCode int, body []byte, rateLimit RateLimit) *APIError {
+	apiErr := &APIError{
+		StatusCode: statusCode,
+		Body:       body,
+		RateLimit:  rateLimit,
+	}
+
+	var payload struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &payload); err == nil {
+		apiErr.ErrorCode = payload.Error
+		apiErr.Message = payload.Message
+	}
+	return apiErr
 }
 
 func bearerToken(authorization string) string {

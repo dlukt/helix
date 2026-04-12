@@ -3,12 +3,14 @@ package eventsub_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/dlukt/helix"
 	"github.com/dlukt/helix/eventsub"
 	"github.com/gorilla/websocket"
 )
@@ -1112,8 +1114,9 @@ func TestWebSocketClientClosesReplacementSocketOnReconnectAbort(t *testing.T) {
 	})
 
 	err := client.Run(ctx)
-	if err == nil || err.Error() != "websocket: close 1006 (abnormal closure): unexpected EOF" {
-		t.Fatalf("Run() error = %v, want old-socket EOF during reconnect abort", err)
+	var closeErr *eventsub.WebSocketCloseError
+	if !errors.As(err, &closeErr) || closeErr.Code != websocket.CloseAbnormalClosure {
+		t.Fatalf("Run() error = %v, want close code %d", err, websocket.CloseAbnormalClosure)
 	}
 
 	select {
@@ -1410,6 +1413,186 @@ func TestWebSocketClientClosesReconnectedSessionOnLaterExit(t *testing.T) {
 	}
 }
 
+func TestWebSocketClientReturnsTypedCloseErrors(t *testing.T) {
+	t.Parallel()
+
+	upgrader := websocket.Upgrader{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Errorf("Upgrade() error = %v", err)
+			return
+		}
+		defer conn.Close()
+		_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4007, "invalid reconnect"), time.Now().Add(time.Second))
+	}))
+	defer server.Close()
+
+	client := eventsub.NewWebSocketClient(eventsub.WebSocketClientConfig{
+		URL: serverToWSURL(server.URL),
+	})
+
+	err := client.Run(context.Background())
+	if err == nil {
+		t.Fatal("Run() error = nil, want typed close error")
+	}
+	var closeErr *eventsub.WebSocketCloseError
+	if !errors.As(err, &closeErr) {
+		t.Fatalf("Run() error type = %T, want *WebSocketCloseError", err)
+	}
+	if got := closeErr.Code; got != 4007 {
+		t.Fatalf("Code = %d, want 4007", got)
+	}
+	if closeErr.Recoverable {
+		t.Fatal("Recoverable = true, want false")
+	}
+}
+
+func TestWebSocketClientRecoversHardDisconnectAndResubscribes(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var mu sync.Mutex
+	var sessions []string
+	var creates []helix.CreateEventSubSubscriptionRequest
+	recoveryAPI := &fakeSubscriptionAPI{
+		listResponse: &helix.ListEventSubSubscriptionsResponse{
+			Data: []helix.EventSubSubscription{
+				{
+					ID:        "sub-1",
+					Status:    "enabled",
+					Type:      "stream.online",
+					Version:   "1",
+					Condition: helix.EventSubCondition{"broadcaster_user_id": "123"},
+					Transport: helix.EventSubTransport{Method: "websocket", SessionID: "session-1"},
+				},
+			},
+		},
+		onCreate: func(req helix.CreateEventSubSubscriptionRequest) {
+			mu.Lock()
+			defer mu.Unlock()
+			creates = append(creates, req)
+		},
+	}
+
+	var connections int
+	server := newTestWSServer(t, func(conn *websocket.Conn, serverURL string) {
+		connections++
+		switch connections {
+		case 1:
+			writeWSMessage(t, conn, map[string]any{
+				"metadata": map[string]any{
+					"message_id":        "welcome-1",
+					"message_type":      "session_welcome",
+					"message_timestamp": "2024-04-11T12:00:00Z",
+				},
+				"payload": map[string]any{
+					"session": map[string]any{
+						"id":                        "session-1",
+						"status":                    "connected",
+						"keepalive_timeout_seconds": 10,
+						"reconnect_url":             "",
+					},
+				},
+			})
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4006, "network error"), time.Now().Add(time.Second))
+		default:
+			writeWSMessage(t, conn, map[string]any{
+				"metadata": map[string]any{
+					"message_id":        "welcome-2",
+					"message_type":      "session_welcome",
+					"message_timestamp": "2024-04-11T12:00:02Z",
+				},
+				"payload": map[string]any{
+					"session": map[string]any{
+						"id":                        "session-2",
+						"status":                    "connected",
+						"keepalive_timeout_seconds": 10,
+						"reconnect_url":             "",
+					},
+				},
+			})
+			time.Sleep(50 * time.Millisecond)
+			writeWSMessage(t, conn, map[string]any{
+				"metadata": map[string]any{
+					"message_id":           "notification-1",
+					"message_type":         "notification",
+					"message_timestamp":    "2024-04-11T12:00:03Z",
+					"subscription_type":    "stream.online",
+					"subscription_version": "1",
+				},
+				"payload": map[string]any{
+					"subscription": map[string]any{
+						"id":      "sub-2",
+						"type":    "stream.online",
+						"version": "1",
+						"status":  "enabled",
+					},
+					"event": map[string]any{
+						"id":                     "stream-1",
+						"broadcaster_user_id":    "123",
+						"broadcaster_user_login": "caster",
+						"broadcaster_user_name":  "Caster",
+						"type":                   "live",
+						"started_at":             "2024-04-11T12:00:03Z",
+					},
+				},
+			})
+			time.Sleep(50 * time.Millisecond)
+		}
+	})
+	defer server.Close()
+
+	client := eventsub.NewWebSocketClient(eventsub.WebSocketClientConfig{
+		URL: serverToWSURL(server.URL),
+		Recovery: &eventsub.WebSocketRecoveryConfig{
+			Subscriptions: recoveryAPI,
+		},
+		OnSessionWelcome: func(_ context.Context, session eventsub.WebSocketSession) error {
+			mu.Lock()
+			sessions = append(sessions, session.ID)
+			mu.Unlock()
+
+			_, _, err := recoveryAPI.Create(context.Background(), helix.CreateEventSubSubscriptionRequest{
+				Type:      "stream.online",
+				Version:   "1",
+				Condition: helix.EventSubCondition{"broadcaster_user_id": "123"},
+				Transport: helix.EventSubTransport{
+					Method:    "websocket",
+					SessionID: session.ID,
+				},
+			})
+			return err
+		},
+		OnNotification: func(_ context.Context, notification eventsub.Notification) error {
+			cancel()
+			return nil
+		},
+	})
+
+	err := client.Run(ctx)
+	if err != nil && err != context.Canceled {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(sessions) != 1 || sessions[0] != "session-1" {
+		t.Fatalf("sessions = %v, want [session-1]", sessions)
+	}
+	if len(creates) != 2 {
+		t.Fatalf("len(creates) = %d, want 2", len(creates))
+	}
+	if got := creates[0].Transport.SessionID; got != "session-1" {
+		t.Fatalf("creates[0].Transport.SessionID = %q, want %q", got, "session-1")
+	}
+	if got := creates[1].Transport.SessionID; got != "session-2" {
+		t.Fatalf("creates[1].Transport.SessionID = %q, want %q", got, "session-2")
+	}
+}
+
 func newTestWSServer(t *testing.T, onConnect func(conn *websocket.Conn, serverURL string)) *httptest.Server {
 	t.Helper()
 
@@ -1446,4 +1629,20 @@ type assertiveWSError string
 
 func (e assertiveWSError) Error() string {
 	return string(e)
+}
+
+type fakeSubscriptionAPI struct {
+	listResponse *helix.ListEventSubSubscriptionsResponse
+	onCreate     func(helix.CreateEventSubSubscriptionRequest)
+}
+
+func (f *fakeSubscriptionAPI) Create(_ context.Context, req helix.CreateEventSubSubscriptionRequest) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+	if f.onCreate != nil {
+		f.onCreate(req)
+	}
+	return &helix.CreateEventSubSubscriptionResponse{}, &helix.Response{StatusCode: http.StatusAccepted}, nil
+}
+
+func (f *fakeSubscriptionAPI) List(context.Context, helix.ListEventSubSubscriptionsParams) (*helix.ListEventSubSubscriptionsResponse, *helix.Response, error) {
+	return f.listResponse, &helix.Response{StatusCode: http.StatusOK}, nil
 }

@@ -147,6 +147,64 @@ func TestEventSubServiceCreateListAndDeleteSubscriptions(t *testing.T) {
 	}
 }
 
+func TestEventSubServiceCreateTypedSubscriptions(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		var req helix.CreateEventSubSubscriptionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("Decode() error = %v", err)
+		}
+		if got := req.Type; got != "channel.follow" {
+			t.Fatalf("Type = %q, want %q", got, "channel.follow")
+		}
+		if got := req.Version; got != "2" {
+			t.Fatalf("Version = %q, want %q", got, "2")
+		}
+		if got := req.Condition["broadcaster_user_id"]; got != "123" {
+			t.Fatalf("broadcaster_user_id = %q, want %q", got, "123")
+		}
+		if got := req.Condition["moderator_user_id"]; got != "456" {
+			t.Fatalf("moderator_user_id = %q, want %q", got, "456")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{
+				{"id": "sub-1", "status": "enabled", "type": "channel.follow", "version": "2"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client, err := helix.New(helix.Config{
+		ClientID: "client-id",
+		BaseURL:  server.URL,
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	resp, _, err := client.EventSub.CreateChannelFollowV2(context.Background(), helix.CreateChannelFollowV2Request{
+		Condition: helix.ChannelFollowV2Condition{
+			BroadcasterUserID: "123",
+			ModeratorUserID:   "456",
+		},
+		Transport: helix.EventSubTransport{
+			Method:   "webhook",
+			Callback: "https://example.com/eventsub",
+			Secret:   "secret",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateChannelFollowV2() error = %v", err)
+	}
+	if got := resp.Data[0].ID; got != "sub-1" {
+		t.Fatalf("resp.Data[0].ID = %q, want %q", got, "sub-1")
+	}
+}
+
 func TestEventSubServiceCreateAndListUseSharedRetryPath(t *testing.T) {
 	t.Parallel()
 
