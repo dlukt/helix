@@ -1,0 +1,14 @@
+{
+  "events": [
+    {
+      "subscription_type": "channel.follow",
+      "version": "2",
+      "go_type": "ChannelFollowEvent"
+    },
+    {
+      "subscription_type": "stream.online",
+      "version": "1",
+      "go_type": "StreamOnlineEvent"
+    }
+  ]
+}
