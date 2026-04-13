@@ -111,6 +111,21 @@
       "go_type": "ChannelCharityCampaignStopEvent"
     },
     {
+      "subscription_type": "channel.hype_train.begin",
+      "version": "2",
+      "go_type": "ChannelHypeTrainBeginEvent"
+    },
+    {
+      "subscription_type": "channel.hype_train.progress",
+      "version": "2",
+      "go_type": "ChannelHypeTrainProgressEvent"
+    },
+    {
+      "subscription_type": "channel.hype_train.end",
+      "version": "2",
+      "go_type": "ChannelHypeTrainEndEvent"
+    },
+    {
       "subscription_type": "channel.shared_chat.begin",
       "version": "1",
       "go_type": "ChannelSharedChatBeginEvent"
@@ -144,6 +159,26 @@
       "subscription_type": "channel.shoutout.receive",
       "version": "1",
       "go_type": "ChannelShoutoutReceiveEvent"
+    },
+    {
+      "subscription_type": "channel.warning.acknowledge",
+      "version": "1",
+      "go_type": "ChannelWarningAcknowledgeEvent"
+    },
+    {
+      "subscription_type": "channel.warning.send",
+      "version": "1",
+      "go_type": "ChannelWarningSendEvent"
+    },
+    {
+      "subscription_type": "channel.suspicious_user.update",
+      "version": "1",
+      "go_type": "ChannelSuspiciousUserUpdateEvent"
+    },
+    {
+      "subscription_type": "channel.suspicious_user.message",
+      "version": "1",
+      "go_type": "ChannelSuspiciousUserMessageEvent"
     },
     {
       "subscription_type": "channel.cheer",

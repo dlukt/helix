@@ -342,6 +342,62 @@ type ChannelCharityCampaignStopEvent struct {
 	StoppedAt     time.Time     `json:"stopped_at"`
 }
 
+// HypeTrainContribution describes a top hype train contribution.
+type HypeTrainContribution struct {
+	UserID    string `json:"user_id"`
+	UserLogin string `json:"user_login"`
+	UserName  string `json:"user_name"`
+	Type      string `json:"type"`
+	Total     int    `json:"total"`
+}
+
+// HypeTrainParticipant describes a shared hype train participant.
+type HypeTrainParticipant struct {
+	BroadcasterUserID    string `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string `json:"broadcaster_user_login"`
+	BroadcasterUserName  string `json:"broadcaster_user_name"`
+}
+
+// HypeTrainEvent contains shared hype train payload fields.
+type HypeTrainEvent struct {
+	ID                      string                  `json:"id"`
+	BroadcasterUserID       string                  `json:"broadcaster_user_id"`
+	BroadcasterUserLogin    string                  `json:"broadcaster_user_login"`
+	BroadcasterUserName     string                  `json:"broadcaster_user_name"`
+	Total                   int                     `json:"total"`
+	TopContributions        []HypeTrainContribution `json:"top_contributions"`
+	SharedTrainParticipants []HypeTrainParticipant  `json:"shared_train_participants"`
+	Level                   int                     `json:"level"`
+	StartedAt               time.Time               `json:"started_at"`
+	IsSharedTrain           bool                    `json:"is_shared_train"`
+	Type                    string                  `json:"type"`
+}
+
+// ChannelHypeTrainBeginEvent is emitted for channel.hype_train.begin version 2 subscriptions.
+type ChannelHypeTrainBeginEvent struct {
+	HypeTrainEvent
+	Progress         int       `json:"progress"`
+	Goal             int       `json:"goal"`
+	ExpiresAt        time.Time `json:"expires_at"`
+	AllTimeHighLevel int       `json:"all_time_high_level"`
+	AllTimeHighTotal int       `json:"all_time_high_total"`
+}
+
+// ChannelHypeTrainProgressEvent is emitted for channel.hype_train.progress version 2 subscriptions.
+type ChannelHypeTrainProgressEvent struct {
+	HypeTrainEvent
+	Progress  int       `json:"progress"`
+	Goal      int       `json:"goal"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// ChannelHypeTrainEndEvent is emitted for channel.hype_train.end version 2 subscriptions.
+type ChannelHypeTrainEndEvent struct {
+	HypeTrainEvent
+	EndedAt        time.Time `json:"ended_at"`
+	CooldownEndsAt time.Time `json:"cooldown_ends_at"`
+}
+
 // SharedChatParticipant describes a broadcaster participating in a shared chat session.
 type SharedChatParticipant struct {
 	BroadcasterUserID    string `json:"broadcaster_user_id"`
@@ -426,6 +482,88 @@ type ChannelShoutoutReceiveEvent struct {
 	FromBroadcasterUserLogin string    `json:"from_broadcaster_user_login"`
 	ViewerCount              int       `json:"viewer_count"`
 	StartedAt                time.Time `json:"started_at"`
+}
+
+// ChannelWarningAcknowledgeEvent is emitted for channel.warning.acknowledge version 1 subscriptions.
+type ChannelWarningAcknowledgeEvent struct {
+	BroadcasterUserID    string `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string `json:"broadcaster_user_login"`
+	BroadcasterUserName  string `json:"broadcaster_user_name"`
+	UserID               string `json:"user_id"`
+	UserLogin            string `json:"user_login"`
+	UserName             string `json:"user_name"`
+}
+
+// ChannelWarningSendEvent is emitted for channel.warning.send version 1 subscriptions.
+type ChannelWarningSendEvent struct {
+	BroadcasterUserID    string   `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string   `json:"broadcaster_user_login"`
+	BroadcasterUserName  string   `json:"broadcaster_user_name"`
+	ModeratorUserID      string   `json:"moderator_user_id"`
+	ModeratorUserLogin   string   `json:"moderator_user_login"`
+	ModeratorUserName    string   `json:"moderator_user_name"`
+	UserID               string   `json:"user_id"`
+	UserLogin            string   `json:"user_login"`
+	UserName             string   `json:"user_name"`
+	Reason               *string  `json:"reason"`
+	ChatRulesCited       []string `json:"chat_rules_cited"`
+}
+
+// SuspiciousUserMessageCheermote describes a cheermote fragment in a suspicious user message.
+type SuspiciousUserMessageCheermote struct {
+	Prefix string `json:"prefix"`
+	Bits   int    `json:"bits"`
+	Tier   int    `json:"tier"`
+}
+
+// SuspiciousUserMessageEmote describes an emote fragment in a suspicious user message.
+type SuspiciousUserMessageEmote struct {
+	ID         string `json:"id"`
+	EmoteSetID string `json:"emote_set_id"`
+}
+
+// SuspiciousUserMessageFragment describes one fragment in a suspicious user message.
+type SuspiciousUserMessageFragment struct {
+	Type      string                          `json:"type"`
+	Text      string                          `json:"text"`
+	Cheermote *SuspiciousUserMessageCheermote `json:"cheermote"`
+	Emote     *SuspiciousUserMessageEmote     `json:"emote"`
+}
+
+// SuspiciousUserMessage contains a suspicious user's chat message.
+type SuspiciousUserMessage struct {
+	MessageID string                          `json:"message_id"`
+	Text      string                          `json:"text"`
+	Fragments []SuspiciousUserMessageFragment `json:"fragments"`
+}
+
+// ChannelSuspiciousUserUpdateEvent is emitted for channel.suspicious_user.update version 1 subscriptions.
+type ChannelSuspiciousUserUpdateEvent struct {
+	BroadcasterUserID    string `json:"broadcaster_user_id"`
+	BroadcasterUserName  string `json:"broadcaster_user_name"`
+	BroadcasterUserLogin string `json:"broadcaster_user_login"`
+	ModeratorUserID      string `json:"moderator_user_id"`
+	ModeratorUserName    string `json:"moderator_user_name"`
+	ModeratorUserLogin   string `json:"moderator_user_login"`
+	UserID               string `json:"user_id"`
+	UserName             string `json:"user_name"`
+	UserLogin            string `json:"user_login"`
+	LowTrustStatus       string `json:"low_trust_status"`
+}
+
+// ChannelSuspiciousUserMessageEvent is emitted for channel.suspicious_user.message version 1 subscriptions.
+type ChannelSuspiciousUserMessageEvent struct {
+	BroadcasterUserID    string                `json:"broadcaster_user_id"`
+	BroadcasterUserName  string                `json:"broadcaster_user_name"`
+	BroadcasterUserLogin string                `json:"broadcaster_user_login"`
+	UserID               string                `json:"user_id"`
+	UserName             string                `json:"user_name"`
+	UserLogin            string                `json:"user_login"`
+	LowTrustStatus       string                `json:"low_trust_status"`
+	SharedBanChannelIDs  []string              `json:"shared_ban_channel_ids"`
+	Types                []string              `json:"types"`
+	BanEvasionEvaluation string                `json:"ban_evasion_evaluation"`
+	Message              SuspiciousUserMessage `json:"message"`
 }
 
 // ChannelModeratorAddEvent is emitted for channel.moderator.add version 1 subscriptions.

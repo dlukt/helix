@@ -203,6 +203,24 @@ type CreateChannelCharityCampaignStopV1Request struct {
 	Transport EventSubTransport
 }
 
+// CreateChannelHypeTrainBeginV2Request creates a typed channel.hype_train.begin@2 subscription.
+type CreateChannelHypeTrainBeginV2Request struct {
+	Condition BroadcasterUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelHypeTrainProgressV2Request creates a typed channel.hype_train.progress@2 subscription.
+type CreateChannelHypeTrainProgressV2Request struct {
+	Condition BroadcasterUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelHypeTrainEndV2Request creates a typed channel.hype_train.end@2 subscription.
+type CreateChannelHypeTrainEndV2Request struct {
+	Condition BroadcasterUserIDCondition
+	Transport EventSubTransport
+}
+
 // CreateChannelSharedChatBeginV1Request creates a typed channel.shared_chat.begin@1 subscription.
 type CreateChannelSharedChatBeginV1Request struct {
 	Condition BroadcasterUserIDCondition
@@ -241,6 +259,30 @@ type CreateChannelShoutoutCreateV1Request struct {
 
 // CreateChannelShoutoutReceiveV1Request creates a typed channel.shoutout.receive@1 subscription.
 type CreateChannelShoutoutReceiveV1Request struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelWarningAcknowledgeV1Request creates a typed channel.warning.acknowledge@1 subscription.
+type CreateChannelWarningAcknowledgeV1Request struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelWarningSendV1Request creates a typed channel.warning.send@1 subscription.
+type CreateChannelWarningSendV1Request struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelSuspiciousUserUpdateV1Request creates a typed channel.suspicious_user.update@1 subscription.
+type CreateChannelSuspiciousUserUpdateV1Request struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelSuspiciousUserMessageV1Request creates a typed channel.suspicious_user.message@1 subscription.
+type CreateChannelSuspiciousUserMessageV1Request struct {
 	Condition BroadcasterModeratorUserIDCondition
 	Transport EventSubTransport
 }
@@ -636,6 +678,48 @@ func (s *EventSubService) CreateChannelCharityCampaignStopV1(ctx context.Context
 	})
 }
 
+// CreateChannelHypeTrainBeginV2 creates a typed channel.hype_train.begin version 2 subscription.
+func (s *EventSubService) CreateChannelHypeTrainBeginV2(ctx context.Context, req CreateChannelHypeTrainBeginV2Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.hype_train.begin",
+		Version:   "2",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelHypeTrainProgressV2 creates a typed channel.hype_train.progress version 2 subscription.
+func (s *EventSubService) CreateChannelHypeTrainProgressV2(ctx context.Context, req CreateChannelHypeTrainProgressV2Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.hype_train.progress",
+		Version:   "2",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelHypeTrainEndV2 creates a typed channel.hype_train.end version 2 subscription.
+func (s *EventSubService) CreateChannelHypeTrainEndV2(ctx context.Context, req CreateChannelHypeTrainEndV2Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.hype_train.end",
+		Version:   "2",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
 // CreateChannelSharedChatBeginV1 creates a typed channel.shared_chat.begin version 1 subscription.
 func (s *EventSubService) CreateChannelSharedChatBeginV1(ctx context.Context, req CreateChannelSharedChatBeginV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
 	condition, err := marshalCondition(req.Condition)
@@ -728,6 +812,62 @@ func (s *EventSubService) CreateChannelShoutoutReceiveV1(ctx context.Context, re
 	}
 	return s.Create(ctx, CreateEventSubSubscriptionRequest{
 		Type:      "channel.shoutout.receive",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelWarningAcknowledgeV1 creates a typed channel.warning.acknowledge version 1 subscription.
+func (s *EventSubService) CreateChannelWarningAcknowledgeV1(ctx context.Context, req CreateChannelWarningAcknowledgeV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.warning.acknowledge",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelWarningSendV1 creates a typed channel.warning.send version 1 subscription.
+func (s *EventSubService) CreateChannelWarningSendV1(ctx context.Context, req CreateChannelWarningSendV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.warning.send",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelSuspiciousUserUpdateV1 creates a typed channel.suspicious_user.update version 1 subscription.
+func (s *EventSubService) CreateChannelSuspiciousUserUpdateV1(ctx context.Context, req CreateChannelSuspiciousUserUpdateV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.suspicious_user.update",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelSuspiciousUserMessageV1 creates a typed channel.suspicious_user.message version 1 subscription.
+func (s *EventSubService) CreateChannelSuspiciousUserMessageV1(ctx context.Context, req CreateChannelSuspiciousUserMessageV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.suspicious_user.message",
 		Version:   "1",
 		Condition: condition,
 		Transport: req.Transport,
