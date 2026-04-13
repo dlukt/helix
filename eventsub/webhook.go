@@ -231,6 +231,7 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var envelope struct {
 			Subscription Subscription    `json:"subscription"`
 			Event        json.RawMessage `json:"event"`
+			Events       json.RawMessage `json:"events"`
 		}
 		if err := json.Unmarshal(body, &envelope); err != nil {
 			if reserved {
@@ -239,7 +240,18 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "decode notification", http.StatusBadRequest)
 			return
 		}
-		event, err := h.registry.Decode(envelope.Subscription.Type, envelope.Subscription.Version, envelope.Event)
+		payload := envelope.Event
+		if len(envelope.Events) != 0 {
+			payload = envelope.Events
+		}
+		if len(payload) == 0 {
+			if reserved {
+				_ = h.deduplicator.Forget(ctx, messageID)
+			}
+			http.Error(w, "missing notification payload", http.StatusBadRequest)
+			return
+		}
+		event, err := h.registry.Decode(envelope.Subscription.Type, envelope.Subscription.Version, payload)
 		if err != nil {
 			if reserved {
 				_ = h.deduplicator.Forget(ctx, messageID)

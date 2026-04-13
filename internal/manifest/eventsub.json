@@ -6,9 +6,19 @@
       "go_type": "AutomodMessageHoldEvent"
     },
     {
+      "subscription_type": "automod.message.hold",
+      "version": "2",
+      "go_type": "AutomodMessageHoldV2Event"
+    },
+    {
       "subscription_type": "automod.message.update",
       "version": "1",
       "go_type": "AutomodMessageUpdateEvent"
+    },
+    {
+      "subscription_type": "automod.message.update",
+      "version": "2",
+      "go_type": "AutomodMessageUpdateV2Event"
     },
     {
       "subscription_type": "automod.settings.update",
@@ -19,6 +29,41 @@
       "subscription_type": "automod.terms.update",
       "version": "1",
       "go_type": "AutomodTermsUpdateEvent"
+    },
+    {
+      "subscription_type": "channel.guest_star_session.begin",
+      "version": "beta",
+      "go_type": "ChannelGuestStarSessionBeginEvent"
+    },
+    {
+      "subscription_type": "channel.guest_star_session.end",
+      "version": "beta",
+      "go_type": "ChannelGuestStarSessionEndEvent"
+    },
+    {
+      "subscription_type": "channel.guest_star_guest.update",
+      "version": "beta",
+      "go_type": "ChannelGuestStarGuestUpdateEvent"
+    },
+    {
+      "subscription_type": "channel.guest_star_settings.update",
+      "version": "beta",
+      "go_type": "ChannelGuestStarSettingsUpdateEvent"
+    },
+    {
+      "subscription_type": "conduit.shard.disabled",
+      "version": "1",
+      "go_type": "ConduitShardDisabledEvent"
+    },
+    {
+      "subscription_type": "drop.entitlement.grant",
+      "version": "1",
+      "go_type": "DropEntitlementGrantBatch"
+    },
+    {
+      "subscription_type": "extension.bits_transaction.create",
+      "version": "1",
+      "go_type": "ExtensionBitsTransactionCreateEvent"
     },
     {
       "subscription_type": "channel.follow",
@@ -39,6 +84,41 @@
       "subscription_type": "channel.bits.use",
       "version": "1",
       "go_type": "ChannelBitsUseEvent"
+    },
+    {
+      "subscription_type": "channel.channel_points_automatic_reward_redemption.add",
+      "version": "1",
+      "go_type": "ChannelPointsAutomaticRewardRedemptionAddEvent"
+    },
+    {
+      "subscription_type": "channel.channel_points_automatic_reward_redemption.add",
+      "version": "2",
+      "go_type": "ChannelPointsAutomaticRewardRedemptionAddV2Event"
+    },
+    {
+      "subscription_type": "channel.channel_points_custom_reward.add",
+      "version": "1",
+      "go_type": "ChannelPointsCustomRewardAddEvent"
+    },
+    {
+      "subscription_type": "channel.channel_points_custom_reward.update",
+      "version": "1",
+      "go_type": "ChannelPointsCustomRewardUpdateEvent"
+    },
+    {
+      "subscription_type": "channel.channel_points_custom_reward.remove",
+      "version": "1",
+      "go_type": "ChannelPointsCustomRewardRemoveEvent"
+    },
+    {
+      "subscription_type": "channel.channel_points_custom_reward_redemption.add",
+      "version": "1",
+      "go_type": "ChannelPointsCustomRewardRedemptionAddEvent"
+    },
+    {
+      "subscription_type": "channel.channel_points_custom_reward_redemption.update",
+      "version": "1",
+      "go_type": "ChannelPointsCustomRewardRedemptionUpdateEvent"
     },
     {
       "subscription_type": "stream.online",
@@ -69,6 +149,11 @@
       "subscription_type": "channel.chat.message_delete",
       "version": "1",
       "go_type": "ChannelChatMessageDeleteEvent"
+    },
+    {
+      "subscription_type": "channel.chat.notification",
+      "version": "1",
+      "go_type": "ChannelChatNotificationEvent"
     },
     {
       "subscription_type": "channel.chat_settings.update",
@@ -244,6 +329,16 @@
       "subscription_type": "channel.unban_request.resolve",
       "version": "1",
       "go_type": "ChannelUnbanRequestResolveEvent"
+    },
+    {
+      "subscription_type": "channel.moderate",
+      "version": "1",
+      "go_type": "ChannelModerateEventV1"
+    },
+    {
+      "subscription_type": "channel.moderate",
+      "version": "2",
+      "go_type": "ChannelModerateEventV2"
     },
     {
       "subscription_type": "user.authorization.grant",

@@ -10,6 +10,10 @@ import (
 	"github.com/dlukt/helix"
 )
 
+func intPtr(v int) *int {
+	return &v
+}
+
 func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T) {
 	t.Parallel()
 
@@ -19,27 +23,70 @@ func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T)
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/chat/settings":
-			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
-				t.Fatalf("broadcaster_id = %q, want 123", got)
+			switch r.Method {
+			case http.MethodGet:
+				if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+					t.Fatalf("broadcaster_id = %q, want 123", got)
+				}
+				if got := r.URL.Query().Get("moderator_id"); got != "456" {
+					t.Fatalf("moderator_id = %q, want 456", got)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"broadcaster_id":                    "123",
+						"moderator_id":                      "456",
+						"emote_mode":                        false,
+						"slow_mode":                         true,
+						"slow_mode_wait_time":               10,
+						"follower_mode":                     true,
+						"follower_mode_duration":            5,
+						"subscriber_mode":                   false,
+						"unique_chat_mode":                  true,
+						"non_moderator_chat_delay":          true,
+						"non_moderator_chat_delay_duration": 4,
+					}},
+				})
+			case http.MethodPatch:
+				if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+					t.Fatalf("patch broadcaster_id = %q, want 123", got)
+				}
+				if got := r.URL.Query().Get("moderator_id"); got != "456" {
+					t.Fatalf("patch moderator_id = %q, want 456", got)
+				}
+				var req helix.UpdateChatSettingsRequest
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Fatalf("Decode() error = %v", err)
+				}
+				if req.SlowMode == nil || !*req.SlowMode {
+					t.Fatalf("SlowMode = %#v, want true", req.SlowMode)
+				}
+				if req.SlowModeWaitTime == nil || *req.SlowModeWaitTime != 30 {
+					t.Fatalf("SlowModeWaitTime = %#v, want 30", req.SlowModeWaitTime)
+				}
+				if req.UniqueChatMode == nil || !*req.UniqueChatMode {
+					t.Fatalf("UniqueChatMode = %#v, want true", req.UniqueChatMode)
+				}
+				if req.FollowerMode != nil {
+					t.Fatalf("FollowerMode = %#v, want omitted", req.FollowerMode)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"broadcaster_id":                    "123",
+						"moderator_id":                      "456",
+						"emote_mode":                        false,
+						"slow_mode":                         true,
+						"slow_mode_wait_time":               30,
+						"follower_mode":                     true,
+						"follower_mode_duration":            5,
+						"subscriber_mode":                   false,
+						"unique_chat_mode":                  true,
+						"non_moderator_chat_delay":          true,
+						"non_moderator_chat_delay_duration": 4,
+					}},
+				})
+			default:
+				t.Fatalf("unexpected method for /chat/settings: %s", r.Method)
 			}
-			if got := r.URL.Query().Get("moderator_id"); got != "456" {
-				t.Fatalf("moderator_id = %q, want 456", got)
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"data": []map[string]any{{
-					"broadcaster_id":                    "123",
-					"moderator_id":                      "456",
-					"emote_mode":                        false,
-					"slow_mode":                         true,
-					"slow_mode_wait_time":               10,
-					"follower_mode":                     true,
-					"follower_mode_duration":            5,
-					"subscriber_mode":                   false,
-					"unique_chat_mode":                  true,
-					"non_moderator_chat_delay":          true,
-					"non_moderator_chat_delay_duration": 4,
-				}},
-			})
 		case "/chat/chatters":
 			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
 				t.Fatalf("broadcaster_id = %q, want 123", got)
@@ -60,6 +107,74 @@ func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T)
 				"pagination": map[string]any{
 					"cursor": "next-chatters",
 				},
+			})
+		case "/chat/announcements":
+			if r.Method != http.MethodPost {
+				t.Fatalf("announcement method = %s, want POST", r.Method)
+			}
+			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+				t.Fatalf("announcement broadcaster_id = %q, want 123", got)
+			}
+			if got := r.URL.Query().Get("moderator_id"); got != "456" {
+				t.Fatalf("announcement moderator_id = %q, want 456", got)
+			}
+			var req helix.SendAnnouncementRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := req.Message; got != "Heads up!" {
+				t.Fatalf("announcement message = %q, want Heads up!", got)
+			}
+			if got := req.Color; got != "purple" {
+				t.Fatalf("announcement color = %q, want purple", got)
+			}
+			if req.ForSourceOnly == nil || *req.ForSourceOnly {
+				t.Fatalf("announcement ForSourceOnly = %#v, want false", req.ForSourceOnly)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case "/chat/shoutouts":
+			if r.Method != http.MethodPost {
+				t.Fatalf("shoutout method = %s, want POST", r.Method)
+			}
+			if got := r.URL.Query().Get("from_broadcaster_id"); got != "123" {
+				t.Fatalf("from_broadcaster_id = %q, want 123", got)
+			}
+			if got := r.URL.Query().Get("to_broadcaster_id"); got != "789" {
+				t.Fatalf("to_broadcaster_id = %q, want 789", got)
+			}
+			if got := r.URL.Query().Get("moderator_id"); got != "456" {
+				t.Fatalf("shoutout moderator_id = %q, want 456", got)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case "/chat/messages":
+			if r.Method != http.MethodPost {
+				t.Fatalf("message method = %s, want POST", r.Method)
+			}
+			var req helix.SendMessageRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := req.BroadcasterID; got != "123" {
+				t.Fatalf("message broadcaster_id = %q, want 123", got)
+			}
+			if got := req.SenderID; got != "456" {
+				t.Fatalf("message sender_id = %q, want 456", got)
+			}
+			if got := req.Message; got != "Hello, world!" {
+				t.Fatalf("message text = %q, want Hello, world!", got)
+			}
+			if got := req.ReplyParentMessageID; got != "parent-1" {
+				t.Fatalf("message reply_parent_message_id = %q, want parent-1", got)
+			}
+			if req.ForSourceOnly == nil || *req.ForSourceOnly {
+				t.Fatalf("message ForSourceOnly = %#v, want false", req.ForSourceOnly)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"message_id":  "msg-1",
+					"is_sent":     true,
+					"drop_reason": nil,
+				}},
 			})
 		case "/moderation/moderators":
 			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
@@ -135,6 +250,21 @@ func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T)
 		t.Fatalf("NonModeratorChatDelayDuration = %v, want 4", settingsResp.Data[0].NonModeratorChatDelayDuration)
 	}
 
+	updatedResp, _, err := client.Chat.UpdateSettings(context.Background(), helix.UpdateChatSettingsParams{
+		BroadcasterID: "123",
+		ModeratorID:   "456",
+	}, helix.UpdateChatSettingsRequest{
+		SlowMode:         boolPtr(true),
+		SlowModeWaitTime: intPtr(30),
+		UniqueChatMode:   boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("Chat.UpdateSettings() error = %v", err)
+	}
+	if updatedResp.Data[0].SlowModeWaitTime == nil || *updatedResp.Data[0].SlowModeWaitTime != 30 {
+		t.Fatalf("updated SlowModeWaitTime = %v, want 30", updatedResp.Data[0].SlowModeWaitTime)
+	}
+
 	chattersResp, chattersMeta, err := client.Chat.GetChatters(context.Background(), helix.GetChattersParams{
 		CursorParams:  helix.CursorParams{First: 25},
 		BroadcasterID: "123",
@@ -148,6 +278,53 @@ func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T)
 	}
 	if got := chattersMeta.Pagination.Cursor; got != "next-chatters" {
 		t.Fatalf("Chatters cursor = %q, want next-chatters", got)
+	}
+
+	announcementMeta, err := client.Chat.SendAnnouncement(context.Background(), helix.SendAnnouncementParams{
+		BroadcasterID: "123",
+		ModeratorID:   "456",
+	}, helix.SendAnnouncementRequest{
+		Message:       "Heads up!",
+		Color:         "purple",
+		ForSourceOnly: boolPtr(false),
+	})
+	if err != nil {
+		t.Fatalf("Chat.SendAnnouncement() error = %v", err)
+	}
+	if announcementMeta.StatusCode != http.StatusNoContent {
+		t.Fatalf("announcement status = %d, want %d", announcementMeta.StatusCode, http.StatusNoContent)
+	}
+
+	shoutoutMeta, err := client.Chat.SendShoutout(context.Background(), helix.SendShoutoutParams{
+		FromBroadcasterID: "123",
+		ToBroadcasterID:   "789",
+		ModeratorID:       "456",
+	})
+	if err != nil {
+		t.Fatalf("Chat.SendShoutout() error = %v", err)
+	}
+	if shoutoutMeta.StatusCode != http.StatusNoContent {
+		t.Fatalf("shoutout status = %d, want %d", shoutoutMeta.StatusCode, http.StatusNoContent)
+	}
+
+	messageResp, _, err := client.Chat.SendMessage(context.Background(), helix.SendMessageRequest{
+		BroadcasterID:        "123",
+		SenderID:             "456",
+		Message:              "Hello, world!",
+		ReplyParentMessageID: "parent-1",
+		ForSourceOnly:        boolPtr(false),
+	})
+	if err != nil {
+		t.Fatalf("Chat.SendMessage() error = %v", err)
+	}
+	if got := messageResp.Data[0].MessageID; got != "msg-1" {
+		t.Fatalf("message id = %q, want msg-1", got)
+	}
+	if !messageResp.Data[0].IsSent {
+		t.Fatal("IsSent = false, want true")
+	}
+	if messageResp.Data[0].DropReason != nil {
+		t.Fatalf("DropReason = %#v, want nil", messageResp.Data[0].DropReason)
 	}
 
 	modsResp, modsMeta, err := client.Moderation.GetModerators(context.Background(), helix.GetModeratorsParams{

@@ -48,9 +48,33 @@ type BroadcasterUserIDViewerCondition struct {
 	UserID            string `json:"user_id,omitempty"`
 }
 
+// BroadcasterUserIDRewardIDCondition targets subscriptions scoped by broadcaster and optional reward IDs.
+type BroadcasterUserIDRewardIDCondition struct {
+	BroadcasterUserID string `json:"broadcaster_user_id,omitempty"`
+	RewardID          string `json:"reward_id,omitempty"`
+}
+
 // ClientIDCondition targets subscriptions scoped by client_id.
 type ClientIDCondition struct {
 	ClientID string `json:"client_id,omitempty"`
+}
+
+// ClientIDConduitIDCondition targets subscriptions scoped by client_id and an optional conduit_id.
+type ClientIDConduitIDCondition struct {
+	ClientID  string `json:"client_id,omitempty"`
+	ConduitID string `json:"conduit_id,omitempty"`
+}
+
+// ExtensionClientIDCondition targets subscriptions scoped by extension_client_id.
+type ExtensionClientIDCondition struct {
+	ExtensionClientID string `json:"extension_client_id,omitempty"`
+}
+
+// OrganizationCategoryCampaignCondition targets drop subscriptions scoped by organization and optional category/campaign filters.
+type OrganizationCategoryCampaignCondition struct {
+	OrganizationID string `json:"organization_id,omitempty"`
+	CategoryID     string `json:"category_id,omitempty"`
+	CampaignID     string `json:"campaign_id,omitempty"`
 }
 
 // UserIDCondition targets subscriptions scoped by user_id.
@@ -75,21 +99,23 @@ type EventSubTransport struct {
 
 // EventSubSubscription is a subscription resource.
 type EventSubSubscription struct {
-	ID        string            `json:"id"`
-	Status    string            `json:"status"`
-	Type      string            `json:"type"`
-	Version   string            `json:"version"`
-	Cost      int               `json:"cost"`
-	Condition EventSubCondition `json:"condition"`
-	Transport EventSubTransport `json:"transport"`
+	ID                string            `json:"id"`
+	Status            string            `json:"status"`
+	Type              string            `json:"type"`
+	Version           string            `json:"version"`
+	Cost              int               `json:"cost"`
+	Condition         EventSubCondition `json:"condition"`
+	Transport         EventSubTransport `json:"transport"`
+	IsBatchingEnabled *bool             `json:"is_batching_enabled,omitempty"`
 }
 
 // CreateEventSubSubscriptionRequest creates a subscription.
 type CreateEventSubSubscriptionRequest struct {
-	Type      string            `json:"type"`
-	Version   string            `json:"version"`
-	Condition EventSubCondition `json:"condition"`
-	Transport EventSubTransport `json:"transport"`
+	Type              string            `json:"type"`
+	Version           string            `json:"version"`
+	Condition         EventSubCondition `json:"condition"`
+	Transport         EventSubTransport `json:"transport"`
+	IsBatchingEnabled *bool             `json:"is_batching_enabled,omitempty"`
 }
 
 // CreateAutomodMessageHoldV1Request creates a typed automod.message.hold@1 subscription.
@@ -98,8 +124,20 @@ type CreateAutomodMessageHoldV1Request struct {
 	Transport EventSubTransport
 }
 
+// CreateAutomodMessageHoldV2Request creates a typed automod.message.hold@2 subscription.
+type CreateAutomodMessageHoldV2Request struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
 // CreateAutomodMessageUpdateV1Request creates a typed automod.message.update@1 subscription.
 type CreateAutomodMessageUpdateV1Request struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateAutomodMessageUpdateV2Request creates a typed automod.message.update@2 subscription.
+type CreateAutomodMessageUpdateV2Request struct {
 	Condition BroadcasterModeratorUserIDCondition
 	Transport EventSubTransport
 }
@@ -113,6 +151,60 @@ type CreateAutomodSettingsUpdateV1Request struct {
 // CreateAutomodTermsUpdateV1Request creates a typed automod.terms.update@1 subscription.
 type CreateAutomodTermsUpdateV1Request struct {
 	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelModerateV1Request creates a typed channel.moderate@1 subscription.
+type CreateChannelModerateV1Request struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelModerateV2Request creates a typed channel.moderate@2 subscription.
+type CreateChannelModerateV2Request struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelGuestStarSessionBeginBetaRequest creates a typed channel.guest_star_session.begin@beta subscription.
+type CreateChannelGuestStarSessionBeginBetaRequest struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelGuestStarSessionEndBetaRequest creates a typed channel.guest_star_session.end@beta subscription.
+type CreateChannelGuestStarSessionEndBetaRequest struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelGuestStarGuestUpdateBetaRequest creates a typed channel.guest_star_guest.update@beta subscription.
+type CreateChannelGuestStarGuestUpdateBetaRequest struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelGuestStarSettingsUpdateBetaRequest creates a typed channel.guest_star_settings.update@beta subscription.
+type CreateChannelGuestStarSettingsUpdateBetaRequest struct {
+	Condition BroadcasterModeratorUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateExtensionBitsTransactionCreateV1Request creates a typed extension.bits_transaction.create@1 subscription.
+type CreateExtensionBitsTransactionCreateV1Request struct {
+	Condition ExtensionClientIDCondition
+	Transport EventSubTransport
+}
+
+// CreateConduitShardDisabledV1Request creates a typed conduit.shard.disabled@1 subscription.
+type CreateConduitShardDisabledV1Request struct {
+	Condition ClientIDConduitIDCondition
+	Transport EventSubTransport
+}
+
+// CreateDropEntitlementGrantV1Request creates a typed drop.entitlement.grant@1 subscription.
+type CreateDropEntitlementGrantV1Request struct {
+	Condition OrganizationCategoryCampaignCondition
 	Transport EventSubTransport
 }
 
@@ -136,6 +228,48 @@ type CreateChannelAdBreakBeginV1Request struct {
 
 // CreateChannelBitsUseV1Request creates a typed channel.bits.use@1 subscription.
 type CreateChannelBitsUseV1Request struct {
+	Condition BroadcasterUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelChannelPointsCustomRewardAddV1Request creates a typed channel.channel_points_custom_reward.add@1 subscription.
+type CreateChannelChannelPointsCustomRewardAddV1Request struct {
+	Condition BroadcasterUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelChannelPointsCustomRewardUpdateV1Request creates a typed channel.channel_points_custom_reward.update@1 subscription.
+type CreateChannelChannelPointsCustomRewardUpdateV1Request struct {
+	Condition BroadcasterUserIDRewardIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelChannelPointsCustomRewardRemoveV1Request creates a typed channel.channel_points_custom_reward.remove@1 subscription.
+type CreateChannelChannelPointsCustomRewardRemoveV1Request struct {
+	Condition BroadcasterUserIDRewardIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelChannelPointsCustomRewardRedemptionAddV1Request creates a typed channel.channel_points_custom_reward_redemption.add@1 subscription.
+type CreateChannelChannelPointsCustomRewardRedemptionAddV1Request struct {
+	Condition BroadcasterUserIDRewardIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelChannelPointsCustomRewardRedemptionUpdateV1Request creates a typed channel.channel_points_custom_reward_redemption.update@1 subscription.
+type CreateChannelChannelPointsCustomRewardRedemptionUpdateV1Request struct {
+	Condition BroadcasterUserIDRewardIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelChannelPointsAutomaticRewardRedemptionAddV1Request creates a typed channel.channel_points_automatic_reward_redemption.add@1 subscription.
+type CreateChannelChannelPointsAutomaticRewardRedemptionAddV1Request struct {
+	Condition BroadcasterUserIDCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelChannelPointsAutomaticRewardRedemptionAddV2Request creates a typed channel.channel_points_automatic_reward_redemption.add@2 subscription.
+type CreateChannelChannelPointsAutomaticRewardRedemptionAddV2Request struct {
 	Condition BroadcasterUserIDCondition
 	Transport EventSubTransport
 }
@@ -172,6 +306,12 @@ type CreateChannelChatMessageV1Request struct {
 
 // CreateChannelChatMessageDeleteV1Request creates a typed channel.chat.message_delete@1 subscription.
 type CreateChannelChatMessageDeleteV1Request struct {
+	Condition BroadcasterUserIDViewerCondition
+	Transport EventSubTransport
+}
+
+// CreateChannelChatNotificationV1Request creates a typed channel.chat.notification@1 subscription.
+type CreateChannelChatNotificationV1Request struct {
 	Condition BroadcasterUserIDViewerCondition
 	Transport EventSubTransport
 }
@@ -519,6 +659,20 @@ func (s *EventSubService) CreateAutomodMessageHoldV1(ctx context.Context, req Cr
 	})
 }
 
+// CreateAutomodMessageHoldV2 creates a typed automod.message.hold version 2 subscription.
+func (s *EventSubService) CreateAutomodMessageHoldV2(ctx context.Context, req CreateAutomodMessageHoldV2Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "automod.message.hold",
+		Version:   "2",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
 // CreateAutomodMessageUpdateV1 creates a typed automod.message.update version 1 subscription.
 func (s *EventSubService) CreateAutomodMessageUpdateV1(ctx context.Context, req CreateAutomodMessageUpdateV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
 	condition, err := marshalCondition(req.Condition)
@@ -528,6 +682,48 @@ func (s *EventSubService) CreateAutomodMessageUpdateV1(ctx context.Context, req 
 	return s.Create(ctx, CreateEventSubSubscriptionRequest{
 		Type:      "automod.message.update",
 		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateAutomodMessageUpdateV2 creates a typed automod.message.update version 2 subscription.
+func (s *EventSubService) CreateAutomodMessageUpdateV2(ctx context.Context, req CreateAutomodMessageUpdateV2Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "automod.message.update",
+		Version:   "2",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelModerateV1 creates a typed channel.moderate version 1 subscription.
+func (s *EventSubService) CreateChannelModerateV1(ctx context.Context, req CreateChannelModerateV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.moderate",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelModerateV2 creates a typed channel.moderate version 2 subscription.
+func (s *EventSubService) CreateChannelModerateV2(ctx context.Context, req CreateChannelModerateV2Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.moderate",
+		Version:   "2",
 		Condition: condition,
 		Transport: req.Transport,
 	})
@@ -558,6 +754,106 @@ func (s *EventSubService) CreateAutomodTermsUpdateV1(ctx context.Context, req Cr
 		Version:   "1",
 		Condition: condition,
 		Transport: req.Transport,
+	})
+}
+
+// CreateChannelGuestStarSessionBeginBeta creates a typed channel.guest_star_session.begin version beta subscription.
+func (s *EventSubService) CreateChannelGuestStarSessionBeginBeta(ctx context.Context, req CreateChannelGuestStarSessionBeginBetaRequest) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.guest_star_session.begin",
+		Version:   "beta",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelGuestStarSessionEndBeta creates a typed channel.guest_star_session.end version beta subscription.
+func (s *EventSubService) CreateChannelGuestStarSessionEndBeta(ctx context.Context, req CreateChannelGuestStarSessionEndBetaRequest) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.guest_star_session.end",
+		Version:   "beta",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelGuestStarGuestUpdateBeta creates a typed channel.guest_star_guest.update version beta subscription.
+func (s *EventSubService) CreateChannelGuestStarGuestUpdateBeta(ctx context.Context, req CreateChannelGuestStarGuestUpdateBetaRequest) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.guest_star_guest.update",
+		Version:   "beta",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelGuestStarSettingsUpdateBeta creates a typed channel.guest_star_settings.update version beta subscription.
+func (s *EventSubService) CreateChannelGuestStarSettingsUpdateBeta(ctx context.Context, req CreateChannelGuestStarSettingsUpdateBetaRequest) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.guest_star_settings.update",
+		Version:   "beta",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateExtensionBitsTransactionCreateV1 creates a typed extension.bits_transaction.create version 1 subscription.
+func (s *EventSubService) CreateExtensionBitsTransactionCreateV1(ctx context.Context, req CreateExtensionBitsTransactionCreateV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "extension.bits_transaction.create",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateConduitShardDisabledV1 creates a typed conduit.shard.disabled version 1 subscription.
+func (s *EventSubService) CreateConduitShardDisabledV1(ctx context.Context, req CreateConduitShardDisabledV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "conduit.shard.disabled",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateDropEntitlementGrantV1 creates a typed drop.entitlement.grant version 1 subscription.
+func (s *EventSubService) CreateDropEntitlementGrantV1(ctx context.Context, req CreateDropEntitlementGrantV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	isBatchingEnabled := true
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:              "drop.entitlement.grant",
+		Version:           "1",
+		Condition:         condition,
+		Transport:         req.Transport,
+		IsBatchingEnabled: &isBatchingEnabled,
 	})
 }
 
@@ -612,6 +908,104 @@ func (s *EventSubService) CreateChannelBitsUseV1(ctx context.Context, req Create
 	return s.Create(ctx, CreateEventSubSubscriptionRequest{
 		Type:      "channel.bits.use",
 		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelChannelPointsCustomRewardAddV1 creates a typed channel.channel_points_custom_reward.add version 1 subscription.
+func (s *EventSubService) CreateChannelChannelPointsCustomRewardAddV1(ctx context.Context, req CreateChannelChannelPointsCustomRewardAddV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.channel_points_custom_reward.add",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelChannelPointsCustomRewardUpdateV1 creates a typed channel.channel_points_custom_reward.update version 1 subscription.
+func (s *EventSubService) CreateChannelChannelPointsCustomRewardUpdateV1(ctx context.Context, req CreateChannelChannelPointsCustomRewardUpdateV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.channel_points_custom_reward.update",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelChannelPointsCustomRewardRemoveV1 creates a typed channel.channel_points_custom_reward.remove version 1 subscription.
+func (s *EventSubService) CreateChannelChannelPointsCustomRewardRemoveV1(ctx context.Context, req CreateChannelChannelPointsCustomRewardRemoveV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.channel_points_custom_reward.remove",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelChannelPointsCustomRewardRedemptionAddV1 creates a typed channel.channel_points_custom_reward_redemption.add version 1 subscription.
+func (s *EventSubService) CreateChannelChannelPointsCustomRewardRedemptionAddV1(ctx context.Context, req CreateChannelChannelPointsCustomRewardRedemptionAddV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.channel_points_custom_reward_redemption.add",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelChannelPointsCustomRewardRedemptionUpdateV1 creates a typed channel.channel_points_custom_reward_redemption.update version 1 subscription.
+func (s *EventSubService) CreateChannelChannelPointsCustomRewardRedemptionUpdateV1(ctx context.Context, req CreateChannelChannelPointsCustomRewardRedemptionUpdateV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.channel_points_custom_reward_redemption.update",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelChannelPointsAutomaticRewardRedemptionAddV1 creates a typed channel.channel_points_automatic_reward_redemption.add version 1 subscription.
+func (s *EventSubService) CreateChannelChannelPointsAutomaticRewardRedemptionAddV1(ctx context.Context, req CreateChannelChannelPointsAutomaticRewardRedemptionAddV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.channel_points_automatic_reward_redemption.add",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelChannelPointsAutomaticRewardRedemptionAddV2 creates a typed channel.channel_points_automatic_reward_redemption.add version 2 subscription.
+func (s *EventSubService) CreateChannelChannelPointsAutomaticRewardRedemptionAddV2(ctx context.Context, req CreateChannelChannelPointsAutomaticRewardRedemptionAddV2Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.channel_points_automatic_reward_redemption.add",
+		Version:   "2",
 		Condition: condition,
 		Transport: req.Transport,
 	})
@@ -695,6 +1089,20 @@ func (s *EventSubService) CreateChannelChatMessageDeleteV1(ctx context.Context, 
 	}
 	return s.Create(ctx, CreateEventSubSubscriptionRequest{
 		Type:      "channel.chat.message_delete",
+		Version:   "1",
+		Condition: condition,
+		Transport: req.Transport,
+	})
+}
+
+// CreateChannelChatNotificationV1 creates a typed channel.chat.notification version 1 subscription.
+func (s *EventSubService) CreateChannelChatNotificationV1(ctx context.Context, req CreateChannelChatNotificationV1Request) (*CreateEventSubSubscriptionResponse, *Response, error) {
+	condition, err := marshalCondition(req.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Create(ctx, CreateEventSubSubscriptionRequest{
+		Type:      "channel.chat.notification",
 		Version:   "1",
 		Condition: condition,
 		Transport: req.Transport,

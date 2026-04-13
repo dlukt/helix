@@ -74,6 +74,49 @@ type AutomodMessageHoldEvent struct {
 	HeldAt               time.Time               `json:"held_at"`
 }
 
+// AutomodBoundary identifies the matched text span inside an AutoMod v2 message.
+type AutomodBoundary struct {
+	StartPos int `json:"start_pos"`
+	EndPos   int `json:"end_pos"`
+}
+
+// AutomodV2Details contains the AutoMod category and matched boundaries for a v2 event.
+type AutomodV2Details struct {
+	Category   string            `json:"category"`
+	Level      int               `json:"level"`
+	Boundaries []AutomodBoundary `json:"boundaries"`
+}
+
+// AutomodBlockedTermFound contains one blocked term match in an AutoMod v2 event.
+type AutomodBlockedTermFound struct {
+	TermID                    string          `json:"term_id"`
+	OwnerBroadcasterUserID    string          `json:"owner_broadcaster_user_id"`
+	OwnerBroadcasterUserLogin string          `json:"owner_broadcaster_user_login"`
+	OwnerBroadcasterUserName  string          `json:"owner_broadcaster_user_name"`
+	Boundary                  AutomodBoundary `json:"boundary"`
+}
+
+// AutomodBlockedTermDetails contains the blocked-term matches for an AutoMod v2 event.
+type AutomodBlockedTermDetails struct {
+	TermsFound []AutomodBlockedTermFound `json:"terms_found"`
+}
+
+// AutomodMessageHoldV2Event is emitted for automod.message.hold version 2 subscriptions.
+type AutomodMessageHoldV2Event struct {
+	BroadcasterUserID    string                     `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string                     `json:"broadcaster_user_login"`
+	BroadcasterUserName  string                     `json:"broadcaster_user_name"`
+	UserID               string                     `json:"user_id"`
+	UserLogin            string                     `json:"user_login"`
+	UserName             string                     `json:"user_name"`
+	MessageID            string                     `json:"message_id"`
+	Message              ChatMessage                `json:"message"`
+	Reason               string                     `json:"reason"`
+	Automod              *AutomodV2Details          `json:"automod"`
+	BlockedTerm          *AutomodBlockedTermDetails `json:"blocked_term"`
+	HeldAt               time.Time                  `json:"held_at"`
+}
+
 // AutomodMessageUpdateEvent is emitted for automod.message.update version 1 subscriptions.
 type AutomodMessageUpdateEvent struct {
 	BroadcasterUserID    string                  `json:"broadcaster_user_id"`
@@ -91,6 +134,26 @@ type AutomodMessageUpdateEvent struct {
 	Level                int                     `json:"level"`
 	Status               string                  `json:"status"`
 	HeldAt               time.Time               `json:"held_at"`
+}
+
+// AutomodMessageUpdateV2Event is emitted for automod.message.update version 2 subscriptions.
+type AutomodMessageUpdateV2Event struct {
+	BroadcasterUserID    string                     `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string                     `json:"broadcaster_user_login"`
+	BroadcasterUserName  string                     `json:"broadcaster_user_name"`
+	ModeratorUserID      string                     `json:"moderator_user_id"`
+	ModeratorUserLogin   string                     `json:"moderator_user_login"`
+	ModeratorUserName    string                     `json:"moderator_user_name"`
+	UserID               string                     `json:"user_id"`
+	UserLogin            string                     `json:"user_login"`
+	UserName             string                     `json:"user_name"`
+	MessageID            string                     `json:"message_id"`
+	Message              ChatMessage                `json:"message"`
+	Reason               string                     `json:"reason"`
+	Automod              *AutomodV2Details          `json:"automod"`
+	BlockedTerm          *AutomodBlockedTermDetails `json:"blocked_term"`
+	Status               string                     `json:"status"`
+	HeldAt               time.Time                  `json:"held_at"`
 }
 
 // AutomodMessageV1Message contains the AutoMod v1 message text and attached fragments.
@@ -182,6 +245,235 @@ type AutomodTermsUpdateEvent struct {
 	Terms                []string `json:"terms"`
 }
 
+// GuestStarSessionEvent contains the shared fields for guest star session lifecycle events.
+type GuestStarSessionEvent struct {
+	BroadcasterUserID    string    `json:"broadcaster_user_id"`
+	BroadcasterUserName  string    `json:"broadcaster_user_name"`
+	BroadcasterUserLogin string    `json:"broadcaster_user_login"`
+	ModeratorUserID      string    `json:"moderator_user_id"`
+	ModeratorUserName    string    `json:"moderator_user_name"`
+	ModeratorUserLogin   string    `json:"moderator_user_login"`
+	SessionID            string    `json:"session_id"`
+	StartedAt            time.Time `json:"started_at"`
+}
+
+// ChannelGuestStarSessionBeginEvent is emitted for channel.guest_star_session.begin version beta subscriptions.
+type ChannelGuestStarSessionBeginEvent struct {
+	GuestStarSessionEvent
+}
+
+// ChannelGuestStarSessionEndEvent is emitted for channel.guest_star_session.end version beta subscriptions.
+type ChannelGuestStarSessionEndEvent struct {
+	GuestStarSessionEvent
+	EndedAt time.Time `json:"ended_at"`
+}
+
+// ChannelGuestStarGuestUpdateEvent is emitted for channel.guest_star_guest.update version beta subscriptions.
+type ChannelGuestStarGuestUpdateEvent struct {
+	BroadcasterUserID    string `json:"broadcaster_user_id"`
+	BroadcasterUserName  string `json:"broadcaster_user_name"`
+	BroadcasterUserLogin string `json:"broadcaster_user_login"`
+	SessionID            string `json:"session_id"`
+	ModeratorUserID      string `json:"moderator_user_id"`
+	ModeratorUserName    string `json:"moderator_user_name"`
+	ModeratorUserLogin   string `json:"moderator_user_login"`
+	GuestUserID          string `json:"guest_user_id"`
+	GuestUserName        string `json:"guest_user_name"`
+	GuestUserLogin       string `json:"guest_user_login"`
+	SlotID               string `json:"slot_id"`
+	State                string `json:"state"`
+	HostVideoEnabled     bool   `json:"host_video_enabled"`
+	HostAudioEnabled     bool   `json:"host_audio_enabled"`
+	HostVolume           int    `json:"host_volume"`
+}
+
+// ChannelGuestStarSettingsUpdateEvent is emitted for channel.guest_star_settings.update version beta subscriptions.
+type ChannelGuestStarSettingsUpdateEvent struct {
+	BroadcasterUserID           string `json:"broadcaster_user_id"`
+	BroadcasterUserName         string `json:"broadcaster_user_name"`
+	BroadcasterUserLogin        string `json:"broadcaster_user_login"`
+	IsModeratorSendLiveEnabled  bool   `json:"is_moderator_send_live_enabled"`
+	SlotCount                   int    `json:"slot_count"`
+	IsBrowserSourceAudioEnabled bool   `json:"is_browser_source_audio_enabled"`
+	GroupLayout                 string `json:"group_layout"`
+}
+
+// ExtensionBitsTransactionProduct describes the extension product involved in a Bits transaction.
+type ExtensionBitsTransactionProduct struct {
+	Name          string `json:"name"`
+	SKU           string `json:"sku"`
+	Bits          int    `json:"bits"`
+	InDevelopment bool   `json:"in_development"`
+}
+
+// ExtensionBitsTransactionCreateEvent is emitted for extension.bits_transaction.create version 1 subscriptions.
+type ExtensionBitsTransactionCreateEvent struct {
+	ID                   string                          `json:"id"`
+	ExtensionClientID    string                          `json:"extension_client_id"`
+	BroadcasterUserID    string                          `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string                          `json:"broadcaster_user_login"`
+	BroadcasterUserName  string                          `json:"broadcaster_user_name"`
+	UserName             string                          `json:"user_name"`
+	UserLogin            string                          `json:"user_login"`
+	UserID               string                          `json:"user_id"`
+	Product              ExtensionBitsTransactionProduct `json:"product"`
+}
+
+// ConduitShardDisabledTransport describes the transport affected by a disabled conduit shard.
+type ConduitShardDisabledTransport struct {
+	Method         string     `json:"method"`
+	Callback       *string    `json:"callback"`
+	SessionID      *string    `json:"session_id"`
+	ConnectedAt    *time.Time `json:"connected_at"`
+	DisconnectedAt *time.Time `json:"disconnected_at"`
+}
+
+// ConduitShardDisabledEvent is emitted for conduit.shard.disabled version 1 subscriptions.
+type ConduitShardDisabledEvent struct {
+	ConduitID string                        `json:"conduit_id"`
+	ShardID   string                        `json:"shard_id"`
+	Status    string                        `json:"status"`
+	Transport ConduitShardDisabledTransport `json:"transport"`
+}
+
+// DropEntitlementGrantData describes one granted entitlement in a drop batch notification.
+type DropEntitlementGrantData struct {
+	OrganizationID string    `json:"organization_id"`
+	CategoryID     *string   `json:"category_id"`
+	CategoryName   *string   `json:"category_name"`
+	CampaignID     *string   `json:"campaign_id"`
+	UserID         string    `json:"user_id"`
+	UserName       string    `json:"user_name"`
+	UserLogin      string    `json:"user_login"`
+	EntitlementID  string    `json:"entitlement_id"`
+	BenefitID      string    `json:"benefit_id"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+// DropEntitlementGrantEvent describes one item in a drop entitlement batch.
+type DropEntitlementGrantEvent struct {
+	ID   string                   `json:"id"`
+	Data DropEntitlementGrantData `json:"data"`
+}
+
+// DropEntitlementGrantBatch is emitted for drop.entitlement.grant version 1 subscriptions.
+type DropEntitlementGrantBatch []DropEntitlementGrantEvent
+
+// ChannelModerateUser identifies a user referenced by a moderation action.
+type ChannelModerateUser struct {
+	UserID    string `json:"user_id"`
+	UserLogin string `json:"user_login"`
+	UserName  string `json:"user_name"`
+}
+
+// ChannelModerateFollowers describes followers-only settings set by a moderation action.
+type ChannelModerateFollowers struct {
+	FollowDurationMinutes int `json:"follow_duration_minutes"`
+}
+
+// ChannelModerateSlow describes slow-mode settings set by a moderation action.
+type ChannelModerateSlow struct {
+	WaitTimeSeconds int `json:"wait_time_seconds"`
+}
+
+// ChannelModerateBanAction describes a ban moderation action target.
+type ChannelModerateBanAction struct {
+	ChannelModerateUser
+	Reason string `json:"reason"`
+}
+
+// ChannelModerateTimeoutAction describes a timeout moderation action target.
+type ChannelModerateTimeoutAction struct {
+	ChannelModerateUser
+	Reason    string     `json:"reason"`
+	ExpiresAt *time.Time `json:"expires_at"`
+}
+
+// ChannelModerateRaidAction describes a raid or unraid moderation action target.
+type ChannelModerateRaidAction struct {
+	UserID          string `json:"user_id"`
+	UserLogin       string `json:"user_login"`
+	UserName        string `json:"user_name"`
+	ViewerCount     int    `json:"viewer_count"`
+	ProfileImageURL string `json:"profile_image_url"`
+}
+
+// ChannelModerateDeleteAction describes a deleted message moderation action target.
+type ChannelModerateDeleteAction struct {
+	ChannelModerateUser
+	MessageID   string `json:"message_id"`
+	MessageBody string `json:"message_body"`
+}
+
+// ChannelModerateAutomodTermsAction describes an add/remove blocked or permitted term action.
+type ChannelModerateAutomodTermsAction struct {
+	Action      string   `json:"action"`
+	List        string   `json:"list"`
+	Terms       []string `json:"terms"`
+	FromAutomod bool     `json:"from_automod"`
+}
+
+// ChannelModerateUnbanRequestAction describes an approve/deny unban request action.
+type ChannelModerateUnbanRequestAction struct {
+	IsApproved       bool   `json:"is_approved"`
+	UserID           string `json:"user_id"`
+	UserLogin        string `json:"user_login"`
+	UserName         string `json:"user_name"`
+	ModeratorMessage string `json:"moderator_message"`
+}
+
+// ChannelModerateWarnAction describes a warn action in channel.moderate version 2.
+type ChannelModerateWarnAction struct {
+	ChannelModerateUser
+	Reason         *string  `json:"reason"`
+	ChatRulesCited []string `json:"chat_rules_cited"`
+}
+
+// ChannelModerateEvent contains the shared moderation action payload fields.
+type ChannelModerateEvent struct {
+	BroadcasterUserID          string                             `json:"broadcaster_user_id"`
+	BroadcasterUserLogin       string                             `json:"broadcaster_user_login"`
+	BroadcasterUserName        string                             `json:"broadcaster_user_name"`
+	SourceBroadcasterUserID    *string                            `json:"source_broadcaster_user_id"`
+	SourceBroadcasterUserLogin *string                            `json:"source_broadcaster_user_login"`
+	SourceBroadcasterUserName  *string                            `json:"source_broadcaster_user_name"`
+	ModeratorUserID            string                             `json:"moderator_user_id"`
+	ModeratorUserLogin         string                             `json:"moderator_user_login"`
+	ModeratorUserName          string                             `json:"moderator_user_name"`
+	Action                     string                             `json:"action"`
+	Followers                  *ChannelModerateFollowers          `json:"followers"`
+	Slow                       *ChannelModerateSlow               `json:"slow"`
+	VIP                        *ChannelModerateUser               `json:"vip"`
+	UnVIP                      *ChannelModerateUser               `json:"unvip"`
+	Mod                        *ChannelModerateUser               `json:"mod"`
+	Unmod                      *ChannelModerateUser               `json:"unmod"`
+	Ban                        *ChannelModerateBanAction          `json:"ban"`
+	Unban                      *ChannelModerateUser               `json:"unban"`
+	Timeout                    *ChannelModerateTimeoutAction      `json:"timeout"`
+	Untimeout                  *ChannelModerateUser               `json:"untimeout"`
+	Raid                       *ChannelModerateRaidAction         `json:"raid"`
+	Unraid                     *ChannelModerateRaidAction         `json:"unraid"`
+	Delete                     *ChannelModerateDeleteAction       `json:"delete"`
+	AutomodTerms               *ChannelModerateAutomodTermsAction `json:"automod_terms"`
+	UnbanRequest               *ChannelModerateUnbanRequestAction `json:"unban_request"`
+	SharedChatBan              *ChannelModerateBanAction          `json:"shared_chat_ban"`
+	SharedChatUnban            *ChannelModerateUser               `json:"shared_chat_unban"`
+	SharedChatTimeout          *ChannelModerateTimeoutAction      `json:"shared_chat_timeout"`
+	SharedChatUntimeout        *ChannelModerateUser               `json:"shared_chat_untimeout"`
+	SharedChatDelete           *ChannelModerateDeleteAction       `json:"shared_chat_delete"`
+}
+
+// ChannelModerateEventV1 is emitted for channel.moderate version 1 subscriptions.
+type ChannelModerateEventV1 struct {
+	ChannelModerateEvent
+}
+
+// ChannelModerateEventV2 is emitted for channel.moderate version 2 subscriptions.
+type ChannelModerateEventV2 struct {
+	ChannelModerateEvent
+	Warn *ChannelModerateWarnAction `json:"warn"`
+}
+
 // ChannelAdBreakBeginEvent is emitted for channel.ad_break.begin version 1 subscriptions.
 type ChannelAdBreakBeginEvent struct {
 	DurationSeconds      int       `json:"duration_seconds"`
@@ -237,6 +529,183 @@ type ChannelBitsUseEvent struct {
 	PowerUp              json.RawMessage `json:"power_up"`
 	CustomPowerUp        json.RawMessage `json:"custom_power_up"`
 	Message              BitsUseMessage  `json:"message"`
+}
+
+// ChannelPointsRewardImage contains reward image URLs in multiple sizes.
+type ChannelPointsRewardImage struct {
+	URL1x string `json:"url_1x"`
+	URL2x string `json:"url_2x"`
+	URL4x string `json:"url_4x"`
+}
+
+// ChannelPointsRewardLimit describes a reward usage limit.
+type ChannelPointsRewardLimit struct {
+	IsEnabled bool `json:"is_enabled"`
+	Value     int  `json:"value"`
+}
+
+// ChannelPointsRewardGlobalCooldown describes a reward cooldown policy.
+type ChannelPointsRewardGlobalCooldown struct {
+	IsEnabled bool `json:"is_enabled"`
+	Seconds   int  `json:"seconds"`
+}
+
+// ChannelPointsCustomReward contains the full reward configuration from custom reward events.
+type ChannelPointsCustomReward struct {
+	ID                                string                            `json:"id"`
+	BroadcasterUserID                 string                            `json:"broadcaster_user_id"`
+	BroadcasterUserLogin              string                            `json:"broadcaster_user_login"`
+	BroadcasterUserName               string                            `json:"broadcaster_user_name"`
+	IsEnabled                         bool                              `json:"is_enabled"`
+	IsPaused                          bool                              `json:"is_paused"`
+	IsInStock                         bool                              `json:"is_in_stock"`
+	Title                             string                            `json:"title"`
+	Cost                              int                               `json:"cost"`
+	Prompt                            string                            `json:"prompt"`
+	IsUserInputRequired               bool                              `json:"is_user_input_required"`
+	ShouldRedemptionsSkipRequestQueue bool                              `json:"should_redemptions_skip_request_queue"`
+	CooldownExpiresAt                 *time.Time                        `json:"cooldown_expires_at"`
+	RedemptionsRedeemedCurrentStream  *int                              `json:"redemptions_redeemed_current_stream"`
+	MaxPerStream                      ChannelPointsRewardLimit          `json:"max_per_stream"`
+	MaxPerUserPerStream               ChannelPointsRewardLimit          `json:"max_per_user_per_stream"`
+	GlobalCooldown                    ChannelPointsRewardGlobalCooldown `json:"global_cooldown"`
+	BackgroundColor                   string                            `json:"background_color"`
+	Image                             *ChannelPointsRewardImage         `json:"image"`
+	DefaultImage                      *ChannelPointsRewardImage         `json:"default_image"`
+}
+
+// ChannelPointsCustomRewardAddEvent is emitted for channel.channel_points_custom_reward.add version 1 subscriptions.
+type ChannelPointsCustomRewardAddEvent struct {
+	ChannelPointsCustomReward
+}
+
+// ChannelPointsCustomRewardUpdateEvent is emitted for channel.channel_points_custom_reward.update version 1 subscriptions.
+type ChannelPointsCustomRewardUpdateEvent struct {
+	ChannelPointsCustomReward
+}
+
+// ChannelPointsCustomRewardRemoveEvent is emitted for channel.channel_points_custom_reward.remove version 1 subscriptions.
+type ChannelPointsCustomRewardRemoveEvent struct {
+	ChannelPointsCustomReward
+}
+
+// ChannelPointsCustomRewardRedemptionReward contains the reward snapshot on a redemption event.
+type ChannelPointsCustomRewardRedemptionReward struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Cost   int    `json:"cost"`
+	Prompt string `json:"prompt"`
+}
+
+// ChannelPointsCustomRewardRedemption contains the shared payload for custom reward redemption events.
+type ChannelPointsCustomRewardRedemption struct {
+	ID                   string                                    `json:"id"`
+	BroadcasterUserID    string                                    `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string                                    `json:"broadcaster_user_login"`
+	BroadcasterUserName  string                                    `json:"broadcaster_user_name"`
+	UserID               string                                    `json:"user_id"`
+	UserLogin            string                                    `json:"user_login"`
+	UserName             string                                    `json:"user_name"`
+	UserInput            string                                    `json:"user_input"`
+	Status               string                                    `json:"status"`
+	Reward               ChannelPointsCustomRewardRedemptionReward `json:"reward"`
+	RedeemedAt           time.Time                                 `json:"redeemed_at"`
+}
+
+// ChannelPointsCustomRewardRedemptionAddEvent is emitted for channel.channel_points_custom_reward_redemption.add version 1 subscriptions.
+type ChannelPointsCustomRewardRedemptionAddEvent struct {
+	ChannelPointsCustomRewardRedemption
+}
+
+// ChannelPointsCustomRewardRedemptionUpdateEvent is emitted for channel.channel_points_custom_reward_redemption.update version 1 subscriptions.
+type ChannelPointsCustomRewardRedemptionUpdateEvent struct {
+	ChannelPointsCustomRewardRedemption
+}
+
+// ChannelPointsAutomaticRewardRedemptionV1UnlockedEmote describes an emote unlocked by an automatic reward redemption.
+type ChannelPointsAutomaticRewardRedemptionV1UnlockedEmote struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionV1Reward contains the redeemed automatic reward details in version 1.
+type ChannelPointsAutomaticRewardRedemptionV1Reward struct {
+	Type          string                                                 `json:"type"`
+	Cost          int                                                    `json:"cost"`
+	UnlockedEmote *ChannelPointsAutomaticRewardRedemptionV1UnlockedEmote `json:"unlocked_emote"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionV1MessageEmote describes an emote span in a version 1 automatic reward message.
+type ChannelPointsAutomaticRewardRedemptionV1MessageEmote struct {
+	ID    string `json:"id"`
+	Begin int    `json:"begin"`
+	End   int    `json:"end"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionV1Message contains the version 1 message payload.
+type ChannelPointsAutomaticRewardRedemptionV1Message struct {
+	Text   string                                                 `json:"text"`
+	Emotes []ChannelPointsAutomaticRewardRedemptionV1MessageEmote `json:"emotes"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionAddEvent is emitted for channel.channel_points_automatic_reward_redemption.add version 1 subscriptions.
+type ChannelPointsAutomaticRewardRedemptionAddEvent struct {
+	BroadcasterUserID    string                                          `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string                                          `json:"broadcaster_user_login"`
+	BroadcasterUserName  string                                          `json:"broadcaster_user_name"`
+	UserID               string                                          `json:"user_id"`
+	UserLogin            string                                          `json:"user_login"`
+	UserName             string                                          `json:"user_name"`
+	ID                   string                                          `json:"id"`
+	Reward               ChannelPointsAutomaticRewardRedemptionV1Reward  `json:"reward"`
+	Message              ChannelPointsAutomaticRewardRedemptionV1Message `json:"message"`
+	UserInput            string                                          `json:"user_input"`
+	RedeemedAt           time.Time                                       `json:"redeemed_at"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionV2Emote describes the emote metadata in a version 2 automatic reward message fragment.
+type ChannelPointsAutomaticRewardRedemptionV2Emote struct {
+	ID string `json:"id"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionV2MessageFragment describes one fragment in a version 2 automatic reward message.
+type ChannelPointsAutomaticRewardRedemptionV2MessageFragment struct {
+	Type  string                                         `json:"type"`
+	Text  string                                         `json:"text"`
+	Emote *ChannelPointsAutomaticRewardRedemptionV2Emote `json:"emote"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionV2Message contains the version 2 message payload.
+type ChannelPointsAutomaticRewardRedemptionV2Message struct {
+	Text      string                                                    `json:"text"`
+	Fragments []ChannelPointsAutomaticRewardRedemptionV2MessageFragment `json:"fragments"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionV2RewardEmote describes the reward emote for version 2.
+type ChannelPointsAutomaticRewardRedemptionV2RewardEmote struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionV2Reward contains the redeemed automatic reward details in version 2.
+type ChannelPointsAutomaticRewardRedemptionV2Reward struct {
+	Type          string                                               `json:"type"`
+	ChannelPoints int                                                  `json:"channel_points"`
+	Emote         *ChannelPointsAutomaticRewardRedemptionV2RewardEmote `json:"emote"`
+}
+
+// ChannelPointsAutomaticRewardRedemptionAddV2Event is emitted for channel.channel_points_automatic_reward_redemption.add version 2 subscriptions.
+type ChannelPointsAutomaticRewardRedemptionAddV2Event struct {
+	BroadcasterUserID    string                                           `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string                                           `json:"broadcaster_user_login"`
+	BroadcasterUserName  string                                           `json:"broadcaster_user_name"`
+	UserID               string                                           `json:"user_id"`
+	UserLogin            string                                           `json:"user_login"`
+	UserName             string                                           `json:"user_name"`
+	ID                   string                                           `json:"id"`
+	Reward               ChannelPointsAutomaticRewardRedemptionV2Reward   `json:"reward"`
+	Message              *ChannelPointsAutomaticRewardRedemptionV2Message `json:"message"`
+	RedeemedAt           time.Time                                        `json:"redeemed_at"`
 }
 
 // UnmarshalJSON accepts both the native JSON types and the quoted values shown in Twitch's example payload.
@@ -410,6 +879,156 @@ type ChannelChatMessageEvent struct {
 	SourceMessageID             *string           `json:"source_message_id"`
 	SourceBadges                []ChatBadge       `json:"source_badges"`
 	IsSourceOnly                *bool             `json:"is_source_only"`
+}
+
+// ChannelChatNotificationSubNotice describes a new subscription notice shown in chat.
+type ChannelChatNotificationSubNotice struct {
+	SubTier        string `json:"sub_tier"`
+	IsPrime        bool   `json:"is_prime"`
+	DurationMonths int    `json:"duration_months"`
+}
+
+// ChannelChatNotificationResubNotice describes a resubscription notice shown in chat.
+type ChannelChatNotificationResubNotice struct {
+	CumulativeMonths  int     `json:"cumulative_months"`
+	DurationMonths    int     `json:"duration_months"`
+	StreakMonths      *int    `json:"streak_months"`
+	SubTier           string  `json:"sub_tier"`
+	IsPrime           *bool   `json:"is_prime"`
+	IsGift            bool    `json:"is_gift"`
+	GifterIsAnonymous *bool   `json:"gifter_is_anonymous"`
+	GifterUserID      *string `json:"gifter_user_id"`
+	GifterUserName    *string `json:"gifter_user_name"`
+	GifterUserLogin   *string `json:"gifter_user_login"`
+}
+
+// ChannelChatNotificationSubGiftNotice describes a gifted subscription notice shown in chat.
+type ChannelChatNotificationSubGiftNotice struct {
+	DurationMonths     int     `json:"duration_months"`
+	CumulativeTotal    *int    `json:"cumulative_total"`
+	RecipientUserID    string  `json:"recipient_user_id"`
+	RecipientUserName  string  `json:"recipient_user_name"`
+	RecipientUserLogin string  `json:"recipient_user_login"`
+	SubTier            string  `json:"sub_tier"`
+	CommunityGiftID    *string `json:"community_gift_id"`
+}
+
+// ChannelChatNotificationCommunitySubGiftNotice describes a community gift notice shown in chat.
+type ChannelChatNotificationCommunitySubGiftNotice struct {
+	ID              string `json:"id"`
+	Total           int    `json:"total"`
+	SubTier         string `json:"sub_tier"`
+	CumulativeTotal *int   `json:"cumulative_total"`
+}
+
+// ChannelChatNotificationGiftPaidUpgradeNotice describes a gift paid upgrade notice shown in chat.
+type ChannelChatNotificationGiftPaidUpgradeNotice struct {
+	GifterIsAnonymous bool    `json:"gifter_is_anonymous"`
+	GifterUserID      *string `json:"gifter_user_id"`
+	GifterUserName    *string `json:"gifter_user_name"`
+	GifterUserLogin   *string `json:"gifter_user_login"`
+}
+
+// ChannelChatNotificationPrimePaidUpgradeNotice describes a Prime paid upgrade notice shown in chat.
+type ChannelChatNotificationPrimePaidUpgradeNotice struct {
+	SubTier string `json:"sub_tier"`
+}
+
+// ChannelChatNotificationPayItForwardNotice describes a pay-it-forward notice shown in chat.
+type ChannelChatNotificationPayItForwardNotice struct {
+	GifterIsAnonymous bool    `json:"gifter_is_anonymous"`
+	GifterUserID      *string `json:"gifter_user_id"`
+	GifterUserName    *string `json:"gifter_user_name"`
+	GifterUserLogin   *string `json:"gifter_user_login"`
+}
+
+// ChannelChatNotificationRaidNotice describes a raid notice shown in chat.
+type ChannelChatNotificationRaidNotice struct {
+	UserID          string `json:"user_id"`
+	UserName        string `json:"user_name"`
+	UserLogin       string `json:"user_login"`
+	ViewerCount     int    `json:"viewer_count"`
+	ProfileImageURL string `json:"profile_image_url"`
+}
+
+// ChannelChatNotificationUnraidNotice describes an unraid notice shown in chat.
+type ChannelChatNotificationUnraidNotice struct{}
+
+// ChannelChatNotificationAnnouncementNotice describes an announcement notice shown in chat.
+type ChannelChatNotificationAnnouncementNotice struct {
+	Color string `json:"color"`
+}
+
+// ChannelChatNotificationBitsBadgeTierNotice describes a Bits badge tier notice shown in chat.
+type ChannelChatNotificationBitsBadgeTierNotice struct {
+	Tier int `json:"tier"`
+}
+
+// ChannelChatNotificationCharityAmount describes the donation amount in a charity donation notice.
+type ChannelChatNotificationCharityAmount struct {
+	Value        int    `json:"value"`
+	DecimalPlace int    `json:"decimal_places"`
+	Currency     string `json:"currency"`
+}
+
+// ChannelChatNotificationCharityDonationNotice describes a charity donation notice shown in chat.
+type ChannelChatNotificationCharityDonationNotice struct {
+	CharityName string                               `json:"charity_name"`
+	Amount      ChannelChatNotificationCharityAmount `json:"amount"`
+}
+
+// ChannelChatNotificationWatchStreakNotice describes a watch streak notice shown in chat.
+type ChannelChatNotificationWatchStreakNotice struct {
+	StreakCount          int `json:"streak_count"`
+	ChannelPointsAwarded int `json:"channel_points_awarded"`
+}
+
+// ChannelChatNotificationEvent is emitted for channel.chat.notification version 1 subscriptions.
+type ChannelChatNotificationEvent struct {
+	BroadcasterUserID          string                                         `json:"broadcaster_user_id"`
+	BroadcasterUserLogin       string                                         `json:"broadcaster_user_login"`
+	BroadcasterUserName        string                                         `json:"broadcaster_user_name"`
+	ChatterUserID              string                                         `json:"chatter_user_id"`
+	ChatterUserLogin           string                                         `json:"chatter_user_login"`
+	ChatterUserName            string                                         `json:"chatter_user_name"`
+	ChatterIsAnonymous         bool                                           `json:"chatter_is_anonymous"`
+	Color                      string                                         `json:"color"`
+	Badges                     []ChatBadge                                    `json:"badges"`
+	SystemMessage              string                                         `json:"system_message"`
+	MessageID                  string                                         `json:"message_id"`
+	Message                    ChatMessage                                    `json:"message"`
+	NoticeType                 string                                         `json:"notice_type"`
+	Sub                        *ChannelChatNotificationSubNotice              `json:"sub"`
+	Resub                      *ChannelChatNotificationResubNotice            `json:"resub"`
+	SubGift                    *ChannelChatNotificationSubGiftNotice          `json:"sub_gift"`
+	CommunitySubGift           *ChannelChatNotificationCommunitySubGiftNotice `json:"community_sub_gift"`
+	GiftPaidUpgrade            *ChannelChatNotificationGiftPaidUpgradeNotice  `json:"gift_paid_upgrade"`
+	PrimePaidUpgrade           *ChannelChatNotificationPrimePaidUpgradeNotice `json:"prime_paid_upgrade"`
+	PayItForward               *ChannelChatNotificationPayItForwardNotice     `json:"pay_it_forward"`
+	Raid                       *ChannelChatNotificationRaidNotice             `json:"raid"`
+	Unraid                     *ChannelChatNotificationUnraidNotice           `json:"unraid"`
+	Announcement               *ChannelChatNotificationAnnouncementNotice     `json:"announcement"`
+	BitsBadgeTier              *ChannelChatNotificationBitsBadgeTierNotice    `json:"bits_badge_tier"`
+	CharityDonation            *ChannelChatNotificationCharityDonationNotice  `json:"charity_donation"`
+	WatchStreak                *ChannelChatNotificationWatchStreakNotice      `json:"watch_streak"`
+	SharedChatSub              *ChannelChatNotificationSubNotice              `json:"shared_chat_sub"`
+	SharedChatResub            *ChannelChatNotificationResubNotice            `json:"shared_chat_resub"`
+	SharedChatSubGift          *ChannelChatNotificationSubGiftNotice          `json:"shared_chat_sub_gift"`
+	SharedChatCommunitySubGift *ChannelChatNotificationCommunitySubGiftNotice `json:"shared_chat_community_sub_gift"`
+	SharedChatGiftPaidUpgrade  *ChannelChatNotificationGiftPaidUpgradeNotice  `json:"shared_chat_gift_paid_upgrade"`
+	SharedChatPrimePaidUpgrade *ChannelChatNotificationPrimePaidUpgradeNotice `json:"shared_chat_prime_paid_upgrade"`
+	SharedChatPayItForward     *ChannelChatNotificationPayItForwardNotice     `json:"shared_chat_pay_it_forward"`
+	SharedChatRaid             *ChannelChatNotificationRaidNotice             `json:"shared_chat_raid"`
+	SharedChatUnraid           *ChannelChatNotificationUnraidNotice           `json:"shared_chat_unraid"`
+	SharedChatAnnouncement     *ChannelChatNotificationAnnouncementNotice     `json:"shared_chat_announcement"`
+	SharedChatBitsBadgeTier    *ChannelChatNotificationBitsBadgeTierNotice    `json:"shared_chat_bits_badge_tier"`
+	SharedChatCharityDonation  *ChannelChatNotificationCharityDonationNotice  `json:"shared_chat_charity_donation"`
+	SourceBroadcasterUserID    *string                                        `json:"source_broadcaster_user_id"`
+	SourceBroadcasterUserLogin *string                                        `json:"source_broadcaster_user_login"`
+	SourceBroadcasterUserName  *string                                        `json:"source_broadcaster_user_name"`
+	SourceMessageID            *string                                        `json:"source_message_id"`
+	SourceBadges               []ChatBadge                                    `json:"source_badges"`
+	IsSourceOnly               *bool                                          `json:"is_source_only"`
 }
 
 // ChannelChatSettingsUpdateEvent is emitted for channel.chat_settings.update version 1 subscriptions.
