@@ -159,6 +159,94 @@ func TestEventSubServiceCreateTypedSubscriptions(t *testing.T) {
 		create        func(context.Context, *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error)
 	}{
 		{
+			name:        "automod message hold",
+			wantType:    "automod.message.hold",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"moderator_user_id":   "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateAutomodMessageHoldV1(ctx, helix.CreateAutomodMessageHoldV1Request{
+					Condition: helix.BroadcasterModeratorUserIDCondition{
+						BroadcasterUserID: "123",
+						ModeratorUserID:   "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "automod message update",
+			wantType:    "automod.message.update",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"moderator_user_id":   "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateAutomodMessageUpdateV1(ctx, helix.CreateAutomodMessageUpdateV1Request{
+					Condition: helix.BroadcasterModeratorUserIDCondition{
+						BroadcasterUserID: "123",
+						ModeratorUserID:   "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "automod settings update",
+			wantType:    "automod.settings.update",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"moderator_user_id":   "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateAutomodSettingsUpdateV1(ctx, helix.CreateAutomodSettingsUpdateV1Request{
+					Condition: helix.BroadcasterModeratorUserIDCondition{
+						BroadcasterUserID: "123",
+						ModeratorUserID:   "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "automod terms update",
+			wantType:    "automod.terms.update",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"moderator_user_id":   "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateAutomodTermsUpdateV1(ctx, helix.CreateAutomodTermsUpdateV1Request{
+					Condition: helix.BroadcasterModeratorUserIDCondition{
+						BroadcasterUserID: "123",
+						ModeratorUserID:   "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
 			name:        "channel follow",
 			wantType:    "channel.follow",
 			wantVersion: "2",
@@ -199,6 +287,42 @@ func TestEventSubServiceCreateTypedSubscriptions(t *testing.T) {
 			},
 		},
 		{
+			name:        "channel ad break begin",
+			wantType:    "channel.ad_break.begin",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelAdBreakBeginV1(ctx, helix.CreateChannelAdBreakBeginV1Request{
+					Condition: helix.BroadcasterIDCondition{BroadcasterID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel bits use",
+			wantType:    "channel.bits.use",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelBitsUseV1(ctx, helix.CreateChannelBitsUseV1Request{
+					Condition: helix.BroadcasterUserIDCondition{BroadcasterUserID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
 			name:        "stream online",
 			wantType:    "stream.online",
 			wantVersion: "1",
@@ -226,6 +350,160 @@ func TestEventSubServiceCreateTypedSubscriptions(t *testing.T) {
 			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
 				return client.EventSub.CreateStreamOfflineV1(ctx, helix.CreateStreamOfflineV1Request{
 					Condition: helix.BroadcasterUserIDCondition{BroadcasterUserID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel chat clear",
+			wantType:    "channel.chat.clear",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"user_id":             "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelChatClearV1(ctx, helix.CreateChannelChatClearV1Request{
+					Condition: helix.BroadcasterUserIDViewerCondition{
+						BroadcasterUserID: "123",
+						UserID:            "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel chat clear user messages",
+			wantType:    "channel.chat.clear_user_messages",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"user_id":             "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelChatClearUserMessagesV1(ctx, helix.CreateChannelChatClearUserMessagesV1Request{
+					Condition: helix.BroadcasterUserIDViewerCondition{
+						BroadcasterUserID: "123",
+						UserID:            "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel chat message",
+			wantType:    "channel.chat.message",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"user_id":             "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelChatMessageV1(ctx, helix.CreateChannelChatMessageV1Request{
+					Condition: helix.BroadcasterUserIDViewerCondition{
+						BroadcasterUserID: "123",
+						UserID:            "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel chat message delete",
+			wantType:    "channel.chat.message_delete",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"user_id":             "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelChatMessageDeleteV1(ctx, helix.CreateChannelChatMessageDeleteV1Request{
+					Condition: helix.BroadcasterUserIDViewerCondition{
+						BroadcasterUserID: "123",
+						UserID:            "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel chat settings update",
+			wantType:    "channel.chat_settings.update",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"user_id":             "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelChatSettingsUpdateV1(ctx, helix.CreateChannelChatSettingsUpdateV1Request{
+					Condition: helix.BroadcasterUserIDViewerCondition{
+						BroadcasterUserID: "123",
+						UserID:            "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel chat user message hold",
+			wantType:    "channel.chat.user_message_hold",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"user_id":             "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelChatUserMessageHoldV1(ctx, helix.CreateChannelChatUserMessageHoldV1Request{
+					Condition: helix.BroadcasterUserIDViewerCondition{
+						BroadcasterUserID: "123",
+						UserID:            "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel chat user message update",
+			wantType:    "channel.chat.user_message_update",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"user_id":             "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelChatUserMessageUpdateV1(ctx, helix.CreateChannelChatUserMessageUpdateV1Request{
+					Condition: helix.BroadcasterUserIDViewerCondition{
+						BroadcasterUserID: "123",
+						UserID:            "456",
+					},
 					Transport: helix.EventSubTransport{
 						Method:   "webhook",
 						Callback: "https://example.com/eventsub",
@@ -790,6 +1068,122 @@ func TestEventSubServiceCreateTypedSubscriptions(t *testing.T) {
 						BroadcasterUserID: "123",
 						ModeratorUserID:   "456",
 					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel unban request create",
+			wantType:    "channel.unban_request.create",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"moderator_user_id":   "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelUnbanRequestCreateV1(ctx, helix.CreateChannelUnbanRequestCreateV1Request{
+					Condition: helix.BroadcasterModeratorUserIDCondition{
+						BroadcasterUserID: "123",
+						ModeratorUserID:   "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel unban request resolve",
+			wantType:    "channel.unban_request.resolve",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"moderator_user_id":   "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelUnbanRequestResolveV1(ctx, helix.CreateChannelUnbanRequestResolveV1Request{
+					Condition: helix.BroadcasterModeratorUserIDCondition{
+						BroadcasterUserID: "123",
+						ModeratorUserID:   "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "user authorization grant",
+			wantType:    "user.authorization.grant",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"client_id": "client-id",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateUserAuthorizationGrantV1(ctx, helix.CreateUserAuthorizationGrantV1Request{
+					Condition: helix.ClientIDCondition{ClientID: "client-id"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "user authorization revoke",
+			wantType:    "user.authorization.revoke",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"client_id": "client-id",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateUserAuthorizationRevokeV1(ctx, helix.CreateUserAuthorizationRevokeV1Request{
+					Condition: helix.ClientIDCondition{ClientID: "client-id"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "user update",
+			wantType:    "user.update",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"user_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateUserUpdateV1(ctx, helix.CreateUserUpdateV1Request{
+					Condition: helix.UserIDCondition{UserID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "user whisper message",
+			wantType:    "user.whisper.message",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"user_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateUserWhisperMessageV1(ctx, helix.CreateUserWhisperMessageV1Request{
+					Condition: helix.UserIDCondition{UserID: "123"},
 					Transport: helix.EventSubTransport{
 						Method:   "webhook",
 						Callback: "https://example.com/eventsub",

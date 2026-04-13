@@ -1,6 +1,26 @@
 {
   "events": [
     {
+      "subscription_type": "automod.message.hold",
+      "version": "1",
+      "go_type": "AutomodMessageHoldEvent"
+    },
+    {
+      "subscription_type": "automod.message.update",
+      "version": "1",
+      "go_type": "AutomodMessageUpdateEvent"
+    },
+    {
+      "subscription_type": "automod.settings.update",
+      "version": "1",
+      "go_type": "AutomodSettingsUpdateEvent"
+    },
+    {
+      "subscription_type": "automod.terms.update",
+      "version": "1",
+      "go_type": "AutomodTermsUpdateEvent"
+    },
+    {
       "subscription_type": "channel.follow",
       "version": "2",
       "go_type": "ChannelFollowEvent"
@@ -11,6 +31,16 @@
       "go_type": "ChannelUpdateEvent"
     },
     {
+      "subscription_type": "channel.ad_break.begin",
+      "version": "1",
+      "go_type": "ChannelAdBreakBeginEvent"
+    },
+    {
+      "subscription_type": "channel.bits.use",
+      "version": "1",
+      "go_type": "ChannelBitsUseEvent"
+    },
+    {
       "subscription_type": "stream.online",
       "version": "1",
       "go_type": "StreamOnlineEvent"
@@ -19,6 +49,41 @@
       "subscription_type": "stream.offline",
       "version": "1",
       "go_type": "StreamOfflineEvent"
+    },
+    {
+      "subscription_type": "channel.chat.clear",
+      "version": "1",
+      "go_type": "ChannelChatClearEvent"
+    },
+    {
+      "subscription_type": "channel.chat.clear_user_messages",
+      "version": "1",
+      "go_type": "ChannelChatClearUserMessagesEvent"
+    },
+    {
+      "subscription_type": "channel.chat.message",
+      "version": "1",
+      "go_type": "ChannelChatMessageEvent"
+    },
+    {
+      "subscription_type": "channel.chat.message_delete",
+      "version": "1",
+      "go_type": "ChannelChatMessageDeleteEvent"
+    },
+    {
+      "subscription_type": "channel.chat_settings.update",
+      "version": "1",
+      "go_type": "ChannelChatSettingsUpdateEvent"
+    },
+    {
+      "subscription_type": "channel.chat.user_message_hold",
+      "version": "1",
+      "go_type": "ChannelChatUserMessageHoldEvent"
+    },
+    {
+      "subscription_type": "channel.chat.user_message_update",
+      "version": "1",
+      "go_type": "ChannelChatUserMessageUpdateEvent"
     },
     {
       "subscription_type": "channel.subscribe",
@@ -169,6 +234,36 @@
       "subscription_type": "channel.warning.send",
       "version": "1",
       "go_type": "ChannelWarningSendEvent"
+    },
+    {
+      "subscription_type": "channel.unban_request.create",
+      "version": "1",
+      "go_type": "ChannelUnbanRequestCreateEvent"
+    },
+    {
+      "subscription_type": "channel.unban_request.resolve",
+      "version": "1",
+      "go_type": "ChannelUnbanRequestResolveEvent"
+    },
+    {
+      "subscription_type": "user.authorization.grant",
+      "version": "1",
+      "go_type": "UserAuthorizationGrantEvent"
+    },
+    {
+      "subscription_type": "user.authorization.revoke",
+      "version": "1",
+      "go_type": "UserAuthorizationRevokeEvent"
+    },
+    {
+      "subscription_type": "user.update",
+      "version": "1",
+      "go_type": "UserUpdateEvent"
+    },
+    {
+      "subscription_type": "user.whisper.message",
+      "version": "1",
+      "go_type": "UserWhisperMessageEvent"
     },
     {
       "subscription_type": "channel.suspicious_user.update",

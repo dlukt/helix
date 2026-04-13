@@ -1,6 +1,11 @@
 package eventsub
 
-import "time"
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"time"
+)
 
 // Subscription identifies an EventSub subscription.
 type Subscription struct {
@@ -54,6 +59,228 @@ type ChannelUpdateEvent struct {
 	ContentClassificationLabels []string `json:"content_classification_labels"`
 }
 
+// AutomodMessageHoldEvent is emitted for automod.message.hold version 1 subscriptions.
+type AutomodMessageHoldEvent struct {
+	BroadcasterUserID    string                  `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string                  `json:"broadcaster_user_login"`
+	BroadcasterUserName  string                  `json:"broadcaster_user_name"`
+	UserID               string                  `json:"user_id"`
+	UserLogin            string                  `json:"user_login"`
+	UserName             string                  `json:"user_name"`
+	MessageID            string                  `json:"message_id"`
+	Message              AutomodMessageV1Message `json:"message"`
+	Category             string                  `json:"category"`
+	Level                int                     `json:"level"`
+	HeldAt               time.Time               `json:"held_at"`
+}
+
+// AutomodMessageUpdateEvent is emitted for automod.message.update version 1 subscriptions.
+type AutomodMessageUpdateEvent struct {
+	BroadcasterUserID    string                  `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string                  `json:"broadcaster_user_login"`
+	BroadcasterUserName  string                  `json:"broadcaster_user_name"`
+	UserID               string                  `json:"user_id"`
+	UserLogin            string                  `json:"user_login"`
+	UserName             string                  `json:"user_name"`
+	ModeratorUserID      string                  `json:"moderator_user_id"`
+	ModeratorUserName    string                  `json:"moderator_user_name"`
+	ModeratorUserLogin   string                  `json:"moderator_user_login"`
+	MessageID            string                  `json:"message_id"`
+	Message              AutomodMessageV1Message `json:"message"`
+	Category             string                  `json:"category"`
+	Level                int                     `json:"level"`
+	Status               string                  `json:"status"`
+	HeldAt               time.Time               `json:"held_at"`
+}
+
+// AutomodMessageV1Message contains the AutoMod v1 message text and attached fragments.
+type AutomodMessageV1Message struct {
+	Text      string                     `json:"text"`
+	Fragments []AutomodMessageV1Fragment `json:"fragments"`
+}
+
+// AutomodMessageV1FragmentEmote describes an emote fragment in an AutoMod v1 message.
+type AutomodMessageV1FragmentEmote struct {
+	ID         string `json:"id"`
+	EmoteSetID string `json:"emote_set_id"`
+}
+
+// AutomodMessageV1FragmentCheermote describes a cheermote fragment in an AutoMod v1 message.
+type AutomodMessageV1FragmentCheermote struct {
+	Prefix string `json:"prefix"`
+	Bits   int    `json:"bits"`
+	Tier   int    `json:"tier"`
+}
+
+// AutomodMessageV1Fragment describes one fragment in an AutoMod v1 message.
+type AutomodMessageV1Fragment struct {
+	Type      string                             `json:"type"`
+	Text      string                             `json:"text"`
+	Cheermote *AutomodMessageV1FragmentCheermote `json:"cheermote"`
+	Emote     *AutomodMessageV1FragmentEmote     `json:"emote"`
+}
+
+// AutomodSettingsUpdateEvent is emitted for automod.settings.update version 1 subscriptions.
+type AutomodSettingsUpdateEvent struct {
+	BroadcasterUserID       string `json:"broadcaster_user_id"`
+	BroadcasterUserLogin    string `json:"broadcaster_user_login"`
+	BroadcasterUserName     string `json:"broadcaster_user_name"`
+	ModeratorUserID         string `json:"moderator_user_id"`
+	ModeratorUserLogin      string `json:"moderator_user_login"`
+	ModeratorUserName       string `json:"moderator_user_name"`
+	Bullying                int    `json:"bullying"`
+	OverallLevel            *int   `json:"overall_level"`
+	Disability              int    `json:"disability"`
+	RaceEthnicityOrReligion int    `json:"race_ethnicity_or_religion"`
+	Misogyny                int    `json:"misogyny"`
+	SexualitySexOrGender    int    `json:"sexuality_sex_or_gender"`
+	Aggression              int    `json:"aggression"`
+	SexBasedTerms           int    `json:"sex_based_terms"`
+	Swearing                int    `json:"swearing"`
+}
+
+// UnmarshalJSON accepts both Twitch's documented {"data":[...]} payload wrapper and a flat event object.
+func (e *AutomodSettingsUpdateEvent) UnmarshalJSON(data []byte) error {
+	type rawAutomodSettingsUpdateEvent AutomodSettingsUpdateEvent
+
+	var wrapped struct {
+		Data *json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(data, &wrapped); err != nil {
+		return err
+	}
+	if wrapped.Data != nil {
+		var items []rawAutomodSettingsUpdateEvent
+		if err := json.Unmarshal(*wrapped.Data, &items); err != nil {
+			return err
+		}
+		if len(items) == 0 {
+			return fmt.Errorf("eventsub: automod settings update missing data item")
+		}
+		*e = AutomodSettingsUpdateEvent(items[0])
+		return nil
+	}
+
+	var flat rawAutomodSettingsUpdateEvent
+	if err := json.Unmarshal(data, &flat); err != nil {
+		return err
+	}
+	*e = AutomodSettingsUpdateEvent(flat)
+	return nil
+}
+
+// AutomodTermsUpdateEvent is emitted for automod.terms.update version 1 subscriptions.
+type AutomodTermsUpdateEvent struct {
+	BroadcasterUserID    string   `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string   `json:"broadcaster_user_login"`
+	BroadcasterUserName  string   `json:"broadcaster_user_name"`
+	ModeratorUserID      string   `json:"moderator_user_id"`
+	ModeratorUserLogin   string   `json:"moderator_user_login"`
+	ModeratorUserName    string   `json:"moderator_user_name"`
+	Action               string   `json:"action"`
+	FromAutomod          bool     `json:"from_automod"`
+	Terms                []string `json:"terms"`
+}
+
+// ChannelAdBreakBeginEvent is emitted for channel.ad_break.begin version 1 subscriptions.
+type ChannelAdBreakBeginEvent struct {
+	DurationSeconds      int       `json:"duration_seconds"`
+	StartedAt            time.Time `json:"started_at"`
+	IsAutomatic          bool      `json:"is_automatic"`
+	BroadcasterUserID    string    `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string    `json:"broadcaster_user_login"`
+	BroadcasterUserName  string    `json:"broadcaster_user_name"`
+	RequesterUserID      string    `json:"requester_user_id"`
+	RequesterUserLogin   string    `json:"requester_user_login"`
+	RequesterUserName    string    `json:"requester_user_name"`
+}
+
+// BitsUseMessageCheermote describes a cheermote fragment in a bits-use message.
+type BitsUseMessageCheermote struct {
+	Prefix string `json:"prefix"`
+	Bits   int    `json:"bits"`
+	Tier   int    `json:"tier"`
+}
+
+// BitsUseMessageEmote describes an emote fragment in a bits-use message.
+type BitsUseMessageEmote struct {
+	ID         string   `json:"id"`
+	EmoteSetID string   `json:"emote_set_id"`
+	OwnerID    string   `json:"owner_id"`
+	Format     []string `json:"format"`
+}
+
+// BitsUseMessageFragment describes one fragment in a bits-use message.
+type BitsUseMessageFragment struct {
+	Type      string                   `json:"type"`
+	Text      string                   `json:"text"`
+	Cheermote *BitsUseMessageCheermote `json:"cheermote"`
+	Emote     *BitsUseMessageEmote     `json:"emote"`
+}
+
+// BitsUseMessage contains the message payload included with a bits-use event.
+type BitsUseMessage struct {
+	Text      string                   `json:"text"`
+	Fragments []BitsUseMessageFragment `json:"fragments"`
+}
+
+// ChannelBitsUseEvent is emitted for channel.bits.use version 1 subscriptions.
+type ChannelBitsUseEvent struct {
+	UserID               string          `json:"user_id"`
+	UserLogin            string          `json:"user_login"`
+	UserName             string          `json:"user_name"`
+	BroadcasterUserID    string          `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string          `json:"broadcaster_user_login"`
+	BroadcasterUserName  string          `json:"broadcaster_user_name"`
+	Bits                 int             `json:"bits"`
+	Type                 string          `json:"type"`
+	PowerUp              json.RawMessage `json:"power_up"`
+	CustomPowerUp        json.RawMessage `json:"custom_power_up"`
+	Message              BitsUseMessage  `json:"message"`
+}
+
+// UnmarshalJSON accepts both the native JSON types and the quoted values shown in Twitch's example payload.
+func (e *ChannelAdBreakBeginEvent) UnmarshalJSON(data []byte) error {
+	type rawEvent struct {
+		DurationSeconds      json.RawMessage `json:"duration_seconds"`
+		StartedAt            time.Time       `json:"started_at"`
+		IsAutomatic          json.RawMessage `json:"is_automatic"`
+		BroadcasterUserID    string          `json:"broadcaster_user_id"`
+		BroadcasterUserLogin string          `json:"broadcaster_user_login"`
+		BroadcasterUserName  string          `json:"broadcaster_user_name"`
+		RequesterUserID      string          `json:"requester_user_id"`
+		RequesterUserLogin   string          `json:"requester_user_login"`
+		RequesterUserName    string          `json:"requester_user_name"`
+	}
+
+	var raw rawEvent
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	durationSeconds, err := parseJSONInt(raw.DurationSeconds)
+	if err != nil {
+		return fmt.Errorf("eventsub: decode ad break duration_seconds: %w", err)
+	}
+	isAutomatic, err := parseJSONBool(raw.IsAutomatic)
+	if err != nil {
+		return fmt.Errorf("eventsub: decode ad break is_automatic: %w", err)
+	}
+
+	*e = ChannelAdBreakBeginEvent{
+		DurationSeconds:      durationSeconds,
+		StartedAt:            raw.StartedAt,
+		IsAutomatic:          isAutomatic,
+		BroadcasterUserID:    raw.BroadcasterUserID,
+		BroadcasterUserLogin: raw.BroadcasterUserLogin,
+		BroadcasterUserName:  raw.BroadcasterUserName,
+		RequesterUserID:      raw.RequesterUserID,
+		RequesterUserLogin:   raw.RequesterUserLogin,
+		RequesterUserName:    raw.RequesterUserName,
+	}
+	return nil
+}
+
 // StreamOnlineEvent is emitted for stream.online version 1 subscriptions.
 type StreamOnlineEvent struct {
 	ID                   string    `json:"id"`
@@ -69,6 +296,159 @@ type StreamOfflineEvent struct {
 	BroadcasterUserID    string `json:"broadcaster_user_id"`
 	BroadcasterUserLogin string `json:"broadcaster_user_login"`
 	BroadcasterUserName  string `json:"broadcaster_user_name"`
+}
+
+// ChannelChatClearEvent is emitted for channel.chat.clear version 1 subscriptions.
+type ChannelChatClearEvent struct {
+	BroadcasterUserID    string `json:"broadcaster_user_id"`
+	BroadcasterUserName  string `json:"broadcaster_user_name"`
+	BroadcasterUserLogin string `json:"broadcaster_user_login"`
+}
+
+// ChannelChatClearUserMessagesEvent is emitted for channel.chat.clear_user_messages version 1 subscriptions.
+type ChannelChatClearUserMessagesEvent struct {
+	BroadcasterUserID    string `json:"broadcaster_user_id"`
+	BroadcasterUserName  string `json:"broadcaster_user_name"`
+	BroadcasterUserLogin string `json:"broadcaster_user_login"`
+	TargetUserID         string `json:"target_user_id"`
+	TargetUserName       string `json:"target_user_name"`
+	TargetUserLogin      string `json:"target_user_login"`
+}
+
+// ChannelChatMessageDeleteEvent is emitted for channel.chat.message_delete version 1 subscriptions.
+type ChannelChatMessageDeleteEvent struct {
+	BroadcasterUserID    string `json:"broadcaster_user_id"`
+	BroadcasterUserName  string `json:"broadcaster_user_name"`
+	BroadcasterUserLogin string `json:"broadcaster_user_login"`
+	TargetUserID         string `json:"target_user_id"`
+	TargetUserName       string `json:"target_user_name"`
+	TargetUserLogin      string `json:"target_user_login"`
+	MessageID            string `json:"message_id"`
+}
+
+// ChatMessageCheermote describes a cheermote fragment in a chat message.
+type ChatMessageCheermote struct {
+	Prefix string `json:"prefix"`
+	Bits   int    `json:"bits"`
+	Tier   int    `json:"tier"`
+}
+
+// ChatMessageEmote describes an emote fragment in a chat message.
+type ChatMessageEmote struct {
+	ID         string   `json:"id"`
+	EmoteSetID string   `json:"emote_set_id"`
+	OwnerID    string   `json:"owner_id"`
+	Format     []string `json:"format"`
+}
+
+// ChatMessageMention describes a mentioned user in a chat message fragment.
+type ChatMessageMention struct {
+	UserID    string `json:"user_id"`
+	UserName  string `json:"user_name"`
+	UserLogin string `json:"user_login"`
+}
+
+// ChatMessageFragment describes one fragment in a chat message.
+type ChatMessageFragment struct {
+	Type      string                `json:"type"`
+	Text      string                `json:"text"`
+	Cheermote *ChatMessageCheermote `json:"cheermote"`
+	Emote     *ChatMessageEmote     `json:"emote"`
+	Mention   *ChatMessageMention   `json:"mention"`
+}
+
+// ChatMessage contains a structured chat message body.
+type ChatMessage struct {
+	Text      string                `json:"text"`
+	Fragments []ChatMessageFragment `json:"fragments"`
+}
+
+// ChatBadge describes one badge attached to a chat user.
+type ChatBadge struct {
+	SetID string `json:"set_id"`
+	ID    string `json:"id"`
+	Info  string `json:"info"`
+}
+
+// ChatMessageCheer describes bits metadata attached to a chat message.
+type ChatMessageCheer struct {
+	Bits int `json:"bits"`
+}
+
+// ChatMessageReply describes reply metadata attached to a chat message.
+type ChatMessageReply struct {
+	ParentMessageID   string `json:"parent_message_id"`
+	ParentMessageBody string `json:"parent_message_body"`
+	ParentUserID      string `json:"parent_user_id"`
+	ParentUserName    string `json:"parent_user_name"`
+	ParentUserLogin   string `json:"parent_user_login"`
+	ThreadMessageID   string `json:"thread_message_id"`
+	ThreadUserID      string `json:"thread_user_id"`
+	ThreadUserName    string `json:"thread_user_name"`
+	ThreadUserLogin   string `json:"thread_user_login"`
+}
+
+// ChannelChatMessageEvent is emitted for channel.chat.message version 1 subscriptions.
+type ChannelChatMessageEvent struct {
+	BroadcasterUserID           string            `json:"broadcaster_user_id"`
+	BroadcasterUserName         string            `json:"broadcaster_user_name"`
+	BroadcasterUserLogin        string            `json:"broadcaster_user_login"`
+	ChatterUserID               string            `json:"chatter_user_id"`
+	ChatterUserName             string            `json:"chatter_user_name"`
+	ChatterUserLogin            string            `json:"chatter_user_login"`
+	MessageID                   string            `json:"message_id"`
+	Message                     ChatMessage       `json:"message"`
+	MessageType                 string            `json:"message_type"`
+	Badges                      []ChatBadge       `json:"badges"`
+	Cheer                       *ChatMessageCheer `json:"cheer"`
+	Color                       string            `json:"color"`
+	Reply                       *ChatMessageReply `json:"reply"`
+	ChannelPointsCustomRewardID *string           `json:"channel_points_custom_reward_id"`
+	SourceBroadcasterUserID     *string           `json:"source_broadcaster_user_id"`
+	SourceBroadcasterUserName   *string           `json:"source_broadcaster_user_name"`
+	SourceBroadcasterUserLogin  *string           `json:"source_broadcaster_user_login"`
+	SourceMessageID             *string           `json:"source_message_id"`
+	SourceBadges                []ChatBadge       `json:"source_badges"`
+	IsSourceOnly                *bool             `json:"is_source_only"`
+}
+
+// ChannelChatSettingsUpdateEvent is emitted for channel.chat_settings.update version 1 subscriptions.
+type ChannelChatSettingsUpdateEvent struct {
+	BroadcasterUserID           string `json:"broadcaster_user_id"`
+	BroadcasterUserLogin        string `json:"broadcaster_user_login"`
+	BroadcasterUserName         string `json:"broadcaster_user_name"`
+	EmoteMode                   bool   `json:"emote_mode"`
+	FollowerMode                bool   `json:"follower_mode"`
+	FollowerModeDurationMinutes *int   `json:"follower_mode_duration_minutes"`
+	SlowMode                    bool   `json:"slow_mode"`
+	SlowModeWaitTimeSeconds     *int   `json:"slow_mode_wait_time_seconds"`
+	SubscriberMode              bool   `json:"subscriber_mode"`
+	UniqueChatMode              bool   `json:"unique_chat_mode"`
+}
+
+// ChannelChatUserMessageHoldEvent is emitted for channel.chat.user_message_hold version 1 subscriptions.
+type ChannelChatUserMessageHoldEvent struct {
+	BroadcasterUserID    string      `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string      `json:"broadcaster_user_login"`
+	BroadcasterUserName  string      `json:"broadcaster_user_name"`
+	UserID               string      `json:"user_id"`
+	UserLogin            string      `json:"user_login"`
+	UserName             string      `json:"user_name"`
+	MessageID            string      `json:"message_id"`
+	Message              ChatMessage `json:"message"`
+}
+
+// ChannelChatUserMessageUpdateEvent is emitted for channel.chat.user_message_update version 1 subscriptions.
+type ChannelChatUserMessageUpdateEvent struct {
+	BroadcasterUserID    string      `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string      `json:"broadcaster_user_login"`
+	BroadcasterUserName  string      `json:"broadcaster_user_name"`
+	UserID               string      `json:"user_id"`
+	UserLogin            string      `json:"user_login"`
+	UserName             string      `json:"user_name"`
+	Status               string      `json:"status"`
+	MessageID            string      `json:"message_id"`
+	Message              ChatMessage `json:"message"`
 }
 
 // ChannelSubscribeEvent is emitted for channel.subscribe version 1 subscriptions.
@@ -293,9 +673,9 @@ type CharityAmount struct {
 // CharityCampaignEvent contains the shared charity campaign payload fields.
 type CharityCampaignEvent struct {
 	ID                 string `json:"id"`
-	BroadcasterID      string `json:"broadcaster_user_id"`
-	BroadcasterName    string `json:"broadcaster_user_name"`
-	BroadcasterLogin   string `json:"broadcaster_user_login"`
+	BroadcasterID      string `json:"broadcaster_id"`
+	BroadcasterName    string `json:"broadcaster_name"`
+	BroadcasterLogin   string `json:"broadcaster_login"`
 	CharityName        string `json:"charity_name"`
 	CharityDescription string `json:"charity_description"`
 	CharityLogo        string `json:"charity_logo"`
@@ -509,6 +889,78 @@ type ChannelWarningSendEvent struct {
 	ChatRulesCited       []string `json:"chat_rules_cited"`
 }
 
+// ChannelUnbanRequestCreateEvent is emitted for channel.unban_request.create version 1 subscriptions.
+type ChannelUnbanRequestCreateEvent struct {
+	ID                   string    `json:"id"`
+	BroadcasterUserID    string    `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string    `json:"broadcaster_user_login"`
+	BroadcasterUserName  string    `json:"broadcaster_user_name"`
+	UserID               string    `json:"user_id"`
+	UserLogin            string    `json:"user_login"`
+	UserName             string    `json:"user_name"`
+	Text                 string    `json:"text"`
+	CreatedAt            time.Time `json:"created_at"`
+}
+
+// ChannelUnbanRequestResolveEvent is emitted for channel.unban_request.resolve version 1 subscriptions.
+type ChannelUnbanRequestResolveEvent struct {
+	ID                   string `json:"id"`
+	BroadcasterUserID    string `json:"broadcaster_user_id"`
+	BroadcasterUserLogin string `json:"broadcaster_user_login"`
+	BroadcasterUserName  string `json:"broadcaster_user_name"`
+	ModeratorUserID      string `json:"moderator_user_id"`
+	ModeratorUserLogin   string `json:"moderator_user_login"`
+	ModeratorUserName    string `json:"moderator_user_name"`
+	UserID               string `json:"user_id"`
+	UserLogin            string `json:"user_login"`
+	UserName             string `json:"user_name"`
+	ResolutionText       string `json:"resolution_text"`
+	Status               string `json:"status"`
+}
+
+// UserAuthorizationGrantEvent is emitted for user.authorization.grant version 1 subscriptions.
+type UserAuthorizationGrantEvent struct {
+	ClientID  string `json:"client_id"`
+	UserID    string `json:"user_id"`
+	UserLogin string `json:"user_login"`
+	UserName  string `json:"user_name"`
+}
+
+// UserAuthorizationRevokeEvent is emitted for user.authorization.revoke version 1 subscriptions.
+type UserAuthorizationRevokeEvent struct {
+	ClientID  string  `json:"client_id"`
+	UserID    string  `json:"user_id"`
+	UserLogin *string `json:"user_login"`
+	UserName  *string `json:"user_name"`
+}
+
+// UserUpdateEvent is emitted for user.update version 1 subscriptions.
+type UserUpdateEvent struct {
+	UserID        string  `json:"user_id"`
+	UserLogin     string  `json:"user_login"`
+	UserName      string  `json:"user_name"`
+	Email         *string `json:"email"`
+	EmailVerified bool    `json:"email_verified"`
+	Description   string  `json:"description"`
+}
+
+// Whisper contains the text of a received whisper.
+type Whisper struct {
+	Text string `json:"text"`
+}
+
+// UserWhisperMessageEvent is emitted for user.whisper.message version 1 subscriptions.
+type UserWhisperMessageEvent struct {
+	FromUserID    string  `json:"from_user_id"`
+	FromUserLogin string  `json:"from_user_login"`
+	FromUserName  string  `json:"from_user_name"`
+	ToUserID      string  `json:"to_user_id"`
+	ToUserLogin   string  `json:"to_user_login"`
+	ToUserName    string  `json:"to_user_name"`
+	WhisperID     string  `json:"whisper_id"`
+	Whisper       Whisper `json:"whisper"`
+}
+
 // SuspiciousUserMessageCheermote describes a cheermote fragment in a suspicious user message.
 type SuspiciousUserMessageCheermote struct {
 	Prefix string `json:"prefix"`
@@ -645,4 +1097,48 @@ type ChannelRaidEvent struct {
 	ToBroadcasterUserLogin   string `json:"to_broadcaster_user_login"`
 	ToBroadcasterUserName    string `json:"to_broadcaster_user_name"`
 	Viewers                  int    `json:"viewers"`
+}
+
+func parseJSONInt(raw json.RawMessage) (int, error) {
+	if len(raw) == 0 {
+		return 0, fmt.Errorf("missing integer")
+	}
+
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return n, nil
+	}
+
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return 0, err
+	}
+
+	value, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, err
+	}
+	return value, nil
+}
+
+func parseJSONBool(raw json.RawMessage) (bool, error) {
+	if len(raw) == 0 {
+		return false, fmt.Errorf("missing boolean")
+	}
+
+	var b bool
+	if err := json.Unmarshal(raw, &b); err == nil {
+		return b, nil
+	}
+
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return false, err
+	}
+
+	value, err := strconv.ParseBool(s)
+	if err != nil {
+		return false, err
+	}
+	return value, nil
 }
