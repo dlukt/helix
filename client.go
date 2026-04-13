@@ -42,6 +42,12 @@ type Client struct {
 	userAgent   string
 
 	Users    *UsersService
+	Channels *ChannelsService
+	Streams  *StreamsService
+	Games    *GamesService
+	Search   *SearchService
+	Clips    *ClipsService
+	Videos   *VideosService
 	EventSub *EventSubService
 }
 
@@ -69,6 +75,12 @@ func New(cfg Config) (*Client, error) {
 		c.authorizer = tokenSourceAuthorizer{source: cfg.TokenSource}
 	}
 	c.Users = &UsersService{client: c}
+	c.Channels = &ChannelsService{client: c}
+	c.Streams = &StreamsService{client: c}
+	c.Games = &GamesService{client: c}
+	c.Search = &SearchService{client: c}
+	c.Clips = &ClipsService{client: c}
+	c.Videos = &VideosService{client: c}
 	c.EventSub = &EventSubService{client: c}
 	return c, nil
 }
