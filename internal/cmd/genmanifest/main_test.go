@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -60,5 +61,107 @@ func mustWriteFile(t *testing.T, path string, contents []byte) {
 
 	if err := os.WriteFile(path, contents, 0o644); err != nil {
 		t.Fatalf("WriteFile(%q): %v", path, err)
+	}
+}
+
+func TestValidateManifest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		manifest manifest
+		wantErr  string
+	}{
+		{
+			name: "valid",
+			manifest: manifest{
+				Events: []eventDef{{
+					SubscriptionType: "channel.follow",
+					Version:          "2",
+					GoType:           "ChannelFollowEvent",
+				}},
+			},
+		},
+		{
+			name: "missing subscription type",
+			manifest: manifest{
+				Events: []eventDef{{Version: "2", GoType: "ChannelFollowEvent"}},
+			},
+			wantErr: "subscription_type is required",
+		},
+		{
+			name: "missing version",
+			manifest: manifest{
+				Events: []eventDef{{SubscriptionType: "channel.follow", GoType: "ChannelFollowEvent"}},
+			},
+			wantErr: "version is required",
+		},
+		{
+			name: "missing go type",
+			manifest: manifest{
+				Events: []eventDef{{SubscriptionType: "channel.follow", Version: "2"}},
+			},
+			wantErr: "go_type is required",
+		},
+		{
+			name: "duplicate type version",
+			manifest: manifest{
+				Events: []eventDef{
+					{SubscriptionType: "channel.follow", Version: "2", GoType: "ChannelFollowEvent"},
+					{SubscriptionType: "channel.follow", Version: "2", GoType: "AnotherType"},
+				},
+			},
+			wantErr: `duplicate event "channel.follow@2"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateManifest(tt.manifest)
+			if tt.wantErr == "" && err != nil {
+				t.Fatalf("validateManifest() error = %v", err)
+			}
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("validateManifest() error = nil, want %q", tt.wantErr)
+				}
+				if got := err.Error(); got == "" || !bytes.Contains([]byte(got), []byte(tt.wantErr)) {
+					t.Fatalf("validateManifest() error = %q, want substring %q", got, tt.wantErr)
+				}
+			}
+		})
+	}
+}
+
+func TestRenderRegistryMatchesCheckedInGeneratedFile(t *testing.T) {
+	t.Parallel()
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+
+	root, err := findRepoRoot(wd)
+	if err != nil {
+		t.Fatalf("findRepoRoot() error = %v", err)
+	}
+
+	data, err := loadManifest(filepath.Join(root, "internal", "manifest", "eventsub.json"))
+	if err != nil {
+		t.Fatalf("loadManifest() error = %v", err)
+	}
+
+	got, err := renderRegistry(data)
+	if err != nil {
+		t.Fatalf("renderRegistry() error = %v", err)
+	}
+
+	want, err := os.ReadFile(filepath.Join(root, "eventsub", "generated_registry.go"))
+	if err != nil {
+		t.Fatalf("ReadFile(generated_registry.go) error = %v", err)
+	}
+
+	if !bytes.Equal(got, want) {
+		t.Fatal("rendered registry does not match checked-in generated file")
 	}
 }

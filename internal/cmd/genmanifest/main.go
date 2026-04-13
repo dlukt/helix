@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -39,23 +40,63 @@ func run() error {
 	}
 
 	manifestPath := filepath.Join(root, "internal", "manifest", "eventsub.json")
-	raw, err := os.ReadFile(manifestPath)
+	data, err := loadManifest(manifestPath)
 	if err != nil {
 		return err
 	}
 
-	var data manifest
-	if err := json.Unmarshal(raw, &data); err != nil {
-		return err
-	}
-
-	var out bytes.Buffer
-	if err := generatedRegistryTmpl.Execute(&out, data); err != nil {
+	out, err := renderRegistry(data)
+	if err != nil {
 		return err
 	}
 
 	outputPath := filepath.Join(root, "eventsub", "generated_registry.go")
-	return os.WriteFile(outputPath, out.Bytes(), 0o644)
+	return os.WriteFile(outputPath, out, 0o644)
+}
+
+func loadManifest(path string) (manifest, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return manifest{}, err
+	}
+
+	var data manifest
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return manifest{}, err
+	}
+	if err := validateManifest(data); err != nil {
+		return manifest{}, err
+	}
+	return data, nil
+}
+
+func validateManifest(data manifest) error {
+	seen := map[string]struct{}{}
+	for i, event := range data.Events {
+		if strings.TrimSpace(event.SubscriptionType) == "" {
+			return fmt.Errorf("events[%d]: subscription_type is required", i)
+		}
+		if strings.TrimSpace(event.Version) == "" {
+			return fmt.Errorf("events[%d]: version is required", i)
+		}
+		if strings.TrimSpace(event.GoType) == "" {
+			return fmt.Errorf("events[%d]: go_type is required", i)
+		}
+		key := event.SubscriptionType + "@" + event.Version
+		if _, ok := seen[key]; ok {
+			return fmt.Errorf("events[%d]: duplicate event %q", i, key)
+		}
+		seen[key] = struct{}{}
+	}
+	return nil
+}
+
+func renderRegistry(data manifest) ([]byte, error) {
+	var out bytes.Buffer
+	if err := generatedRegistryTmpl.Execute(&out, data); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
 }
 
 func findRepoRoot(start string) (string, error) {

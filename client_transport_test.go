@@ -183,6 +183,45 @@ func TestClientReturnsAPIErrorForNonJSONErrorBodies(t *testing.T) {
 	}
 }
 
+func TestClientReturnsAPIErrorForMalformedJSONErrorBodies(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":`))
+	}))
+	defer server.Close()
+
+	client, err := helix.New(helix.Config{
+		ClientID: "client-id",
+		BaseURL:  server.URL,
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	_, _, err = client.Users.Get(context.Background(), helix.GetUsersParams{IDs: []string{"123"}})
+	if err == nil {
+		t.Fatal("Users.Get() error = nil, want APIError")
+	}
+	apiErr, ok := err.(*helix.APIError)
+	if !ok {
+		t.Fatalf("error type = %T, want *helix.APIError", err)
+	}
+	if got := apiErr.ErrorCode; got != "" {
+		t.Fatalf("ErrorCode = %q, want empty", got)
+	}
+	if got := apiErr.Message; got != "" {
+		t.Fatalf("Message = %q, want empty", got)
+	}
+	if got := string(apiErr.Body); got != `{"error":` {
+		t.Fatalf("Body = %q, want malformed JSON body", got)
+	}
+}
+
 func TestClientRetries401WithInvalidatingTokenSource(t *testing.T) {
 	t.Parallel()
 
