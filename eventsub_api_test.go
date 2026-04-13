@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/dlukt/helix"
@@ -150,6 +151,146 @@ func TestEventSubServiceCreateListAndDeleteSubscriptions(t *testing.T) {
 func TestEventSubServiceCreateTypedSubscriptions(t *testing.T) {
 	t.Parallel()
 
+	tests := []struct {
+		name          string
+		wantType      string
+		wantVersion   string
+		wantCondition helix.EventSubCondition
+		create        func(context.Context, *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error)
+	}{
+		{
+			name:        "channel follow",
+			wantType:    "channel.follow",
+			wantVersion: "2",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+				"moderator_user_id":   "456",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelFollowV2(ctx, helix.CreateChannelFollowV2Request{
+					Condition: helix.ChannelFollowV2Condition{
+						BroadcasterUserID: "123",
+						ModeratorUserID:   "456",
+					},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel subscribe",
+			wantType:    "channel.subscribe",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelSubscribeV1(ctx, helix.CreateChannelSubscribeV1Request{
+					Condition: helix.BroadcasterUserIDCondition{BroadcasterUserID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel subscription gift",
+			wantType:    "channel.subscription.gift",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelSubscriptionGiftV1(ctx, helix.CreateChannelSubscriptionGiftV1Request{
+					Condition: helix.BroadcasterUserIDCondition{BroadcasterUserID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel subscription end",
+			wantType:    "channel.subscription.end",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelSubscriptionEndV1(ctx, helix.CreateChannelSubscriptionEndV1Request{
+					Condition: helix.BroadcasterUserIDCondition{BroadcasterUserID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel subscription message",
+			wantType:    "channel.subscription.message",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelSubscriptionMessageV1(ctx, helix.CreateChannelSubscriptionMessageV1Request{
+					Condition: helix.BroadcasterUserIDCondition{BroadcasterUserID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel cheer",
+			wantType:    "channel.cheer",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"broadcaster_user_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelCheerV1(ctx, helix.CreateChannelCheerV1Request{
+					Condition: helix.BroadcasterUserIDCondition{BroadcasterUserID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+		{
+			name:        "channel raid",
+			wantType:    "channel.raid",
+			wantVersion: "1",
+			wantCondition: helix.EventSubCondition{
+				"to_broadcaster_user_id": "123",
+			},
+			create: func(ctx context.Context, client *helix.Client) (*helix.CreateEventSubSubscriptionResponse, *helix.Response, error) {
+				return client.EventSub.CreateChannelRaidV1(ctx, helix.CreateChannelRaidV1Request{
+					Condition: helix.ChannelRaidV1Condition{ToBroadcasterUserID: "123"},
+					Transport: helix.EventSubTransport{
+						Method:   "webhook",
+						Callback: "https://example.com/eventsub",
+						Secret:   "secret",
+					},
+				})
+			},
+		},
+	}
+
+	var requests []helix.CreateEventSubSubscriptionRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Helper()
 
@@ -157,22 +298,11 @@ func TestEventSubServiceCreateTypedSubscriptions(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("Decode() error = %v", err)
 		}
-		if got := req.Type; got != "channel.follow" {
-			t.Fatalf("Type = %q, want %q", got, "channel.follow")
-		}
-		if got := req.Version; got != "2" {
-			t.Fatalf("Version = %q, want %q", got, "2")
-		}
-		if got := req.Condition["broadcaster_user_id"]; got != "123" {
-			t.Fatalf("broadcaster_user_id = %q, want %q", got, "123")
-		}
-		if got := req.Condition["moderator_user_id"]; got != "456" {
-			t.Fatalf("moderator_user_id = %q, want %q", got, "456")
-		}
+		requests = append(requests, req)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"data": []map[string]any{
-				{"id": "sub-1", "status": "enabled", "type": "channel.follow", "version": "2"},
+				{"id": "sub-1", "status": "enabled", "type": req.Type, "version": req.Version},
 			},
 		})
 	}))
@@ -186,22 +316,77 @@ func TestEventSubServiceCreateTypedSubscriptions(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	resp, _, err := client.EventSub.CreateChannelFollowV2(context.Background(), helix.CreateChannelFollowV2Request{
-		Condition: helix.ChannelFollowV2Condition{
-			BroadcasterUserID: "123",
-			ModeratorUserID:   "456",
-		},
-		Transport: helix.EventSubTransport{
-			Method:   "webhook",
-			Callback: "https://example.com/eventsub",
-			Secret:   "secret",
-		},
+	for _, tt := range tests {
+		resp, _, err := tt.create(context.Background(), client)
+		if err != nil {
+			t.Fatalf("%s: create error = %v", tt.name, err)
+		}
+		if got := resp.Data[0].ID; got != "sub-1" {
+			t.Fatalf("%s: resp.Data[0].ID = %q, want %q", tt.name, got, "sub-1")
+		}
+	}
+
+	if got, want := len(requests), len(tests); got != want {
+		t.Fatalf("len(requests) = %d, want %d", got, want)
+	}
+	for i, tt := range tests {
+		req := requests[i]
+		if got := req.Type; got != tt.wantType {
+			t.Fatalf("%s: Type = %q, want %q", tt.name, got, tt.wantType)
+		}
+		if got := req.Version; got != tt.wantVersion {
+			t.Fatalf("%s: Version = %q, want %q", tt.name, got, tt.wantVersion)
+		}
+		if got := len(req.Condition); got != len(tt.wantCondition) {
+			t.Fatalf("%s: len(Condition) = %d, want %d", tt.name, got, len(tt.wantCondition))
+		}
+		for key, want := range tt.wantCondition {
+			if got := req.Condition[key]; got != want {
+				t.Fatalf("%s: Condition[%q] = %q, want %q", tt.name, key, got, want)
+			}
+		}
+	}
+}
+
+func TestEventSubServiceCreateChannelRaidV1ValidatesCondition(t *testing.T) {
+	t.Parallel()
+
+	client, err := helix.New(helix.Config{
+		ClientID: "client-id",
+		BaseURL:  "https://example.com",
 	})
 	if err != nil {
-		t.Fatalf("CreateChannelFollowV2() error = %v", err)
+		t.Fatalf("New() error = %v", err)
 	}
-	if got := resp.Data[0].ID; got != "sub-1" {
-		t.Fatalf("resp.Data[0].ID = %q, want %q", got, "sub-1")
+
+	tests := []struct {
+		name      string
+		condition helix.ChannelRaidV1Condition
+	}{
+		{
+			name:      "missing both IDs",
+			condition: helix.ChannelRaidV1Condition{},
+		},
+		{
+			name: "both IDs set",
+			condition: helix.ChannelRaidV1Condition{
+				FromBroadcasterUserID: "123",
+				ToBroadcasterUserID:   "456",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		_, _, err := client.EventSub.CreateChannelRaidV1(context.Background(), helix.CreateChannelRaidV1Request{
+			Condition: tt.condition,
+			Transport: helix.EventSubTransport{Method: "webhook"},
+		})
+		if err == nil {
+			t.Fatalf("%s: error = nil, want validation error", tt.name)
+		}
+		if !strings.Contains(err.Error(), "exactly one") {
+			t.Fatalf("%s: error = %q, want exactly-one validation message", tt.name, err.Error())
+		}
 	}
 }
 

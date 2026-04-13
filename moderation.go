@@ -56,6 +56,45 @@ type GetBannedUsersResponse struct {
 	Data []BannedUser `json:"data"`
 }
 
+// BanUserParams identifies the broadcaster and moderator for a ban action.
+type BanUserParams struct {
+	BroadcasterID string
+	ModeratorID   string
+}
+
+// BanUserData identifies the user and optional timeout details.
+type BanUserData struct {
+	UserID   string `json:"user_id"`
+	Duration int    `json:"duration,omitempty"`
+	Reason   string `json:"reason,omitempty"`
+}
+
+// BanUserRequest is the request body for Ban User.
+type BanUserRequest struct {
+	Data BanUserData `json:"data"`
+}
+
+// BanAction describes the resulting ban or timeout.
+type BanAction struct {
+	BroadcasterID string     `json:"broadcaster_id"`
+	ModeratorID   string     `json:"moderator_id"`
+	UserID        string     `json:"user_id"`
+	CreatedAt     time.Time  `json:"created_at"`
+	EndTime       *time.Time `json:"end_time"`
+}
+
+// BanUserResponse is the typed response for Ban User.
+type BanUserResponse struct {
+	Data []BanAction `json:"data"`
+}
+
+// UnbanUserParams identifies the broadcaster, moderator, and user to unban.
+type UnbanUserParams struct {
+	BroadcasterID string
+	ModeratorID   string
+	UserID        string
+}
+
 // GetModerators fetches moderators for a broadcaster.
 func (s *ModerationService) GetModerators(ctx context.Context, params GetModeratorsParams) (*GetModeratorsResponse, *Response, error) {
 	query := url.Values{}
@@ -92,4 +131,37 @@ func (s *ModerationService) GetBannedUsers(ctx context.Context, params GetBanned
 		return nil, meta, err
 	}
 	return &resp, meta, nil
+}
+
+// BanUser bans a user or puts them in a timeout.
+func (s *ModerationService) BanUser(ctx context.Context, params BanUserParams, req BanUserRequest) (*BanUserResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+	query.Set("moderator_id", params.ModeratorID)
+
+	var resp BanUserResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodPost,
+		Path:   "/moderation/bans",
+		Query:  query,
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// UnbanUser removes a ban or timeout from a user.
+func (s *ModerationService) UnbanUser(ctx context.Context, params UnbanUserParams) (*Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+	query.Set("moderator_id", params.ModeratorID)
+	query.Set("user_id", params.UserID)
+
+	return s.client.Do(ctx, RawRequest{
+		Method: http.MethodDelete,
+		Path:   "/moderation/bans",
+		Query:  query,
+	}, nil)
 }

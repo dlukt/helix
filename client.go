@@ -46,6 +46,7 @@ type Client struct {
 	Streams    *StreamsService
 	Chat       *ChatService
 	Moderation *ModerationService
+	Raids      *RaidsService
 	Schedule   *ScheduleService
 	Markers    *MarkersService
 	Games      *GamesService
@@ -83,6 +84,7 @@ func New(cfg Config) (*Client, error) {
 	c.Streams = &StreamsService{client: c}
 	c.Chat = &ChatService{client: c}
 	c.Moderation = &ModerationService{client: c}
+	c.Raids = &RaidsService{client: c}
 	c.Schedule = &ScheduleService{client: c}
 	c.Markers = &MarkersService{client: c}
 	c.Games = &GamesService{client: c}

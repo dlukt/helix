@@ -9,6 +9,36 @@
       "subscription_type": "stream.online",
       "version": "1",
       "go_type": "StreamOnlineEvent"
+    },
+    {
+      "subscription_type": "channel.subscribe",
+      "version": "1",
+      "go_type": "ChannelSubscribeEvent"
+    },
+    {
+      "subscription_type": "channel.subscription.gift",
+      "version": "1",
+      "go_type": "ChannelSubscriptionGiftEvent"
+    },
+    {
+      "subscription_type": "channel.subscription.end",
+      "version": "1",
+      "go_type": "ChannelSubscriptionEndEvent"
+    },
+    {
+      "subscription_type": "channel.subscription.message",
+      "version": "1",
+      "go_type": "ChannelSubscriptionMessageEvent"
+    },
+    {
+      "subscription_type": "channel.cheer",
+      "version": "1",
+      "go_type": "ChannelCheerEvent"
+    },
+    {
+      "subscription_type": "channel.raid",
+      "version": "1",
+      "go_type": "ChannelRaidEvent"
     }
   ]
 }

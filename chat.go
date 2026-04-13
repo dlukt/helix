@@ -28,8 +28,8 @@ type ChatSettings struct {
 	FollowerModeDuration          *int   `json:"follower_mode_duration"`
 	SubscriberMode                bool   `json:"subscriber_mode"`
 	UniqueChatMode                bool   `json:"unique_chat_mode"`
-	NonModeratorChatDelay         *bool `json:"non_moderator_chat_delay"`
-	NonModeratorChatDelayDuration *int  `json:"non_moderator_chat_delay_duration"`
+	NonModeratorChatDelay         *bool  `json:"non_moderator_chat_delay"`
+	NonModeratorChatDelayDuration *int   `json:"non_moderator_chat_delay_duration"`
 }
 
 // GetChatSettingsResponse is the typed response for Get Chat Settings.
@@ -56,6 +56,13 @@ type GetChattersResponse struct {
 	Data       []Chatter  `json:"data"`
 	Total      int        `json:"total"`
 	Pagination Pagination `json:"pagination"`
+}
+
+// DeleteChatMessagesParams filters Delete Chat Messages requests.
+type DeleteChatMessagesParams struct {
+	BroadcasterID string
+	ModeratorID   string
+	MessageID     string
 }
 
 // GetSettings fetches the broadcaster's chat settings.
@@ -95,4 +102,20 @@ func (s *ChatService) GetChatters(ctx context.Context, params GetChattersParams)
 		return nil, meta, err
 	}
 	return &resp, meta, nil
+}
+
+// DeleteChatMessages deletes a specific chat message or clears chat if MessageID is empty.
+func (s *ChatService) DeleteChatMessages(ctx context.Context, params DeleteChatMessagesParams) (*Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+	query.Set("moderator_id", params.ModeratorID)
+	if params.MessageID != "" {
+		query.Set("message_id", params.MessageID)
+	}
+
+	return s.client.Do(ctx, RawRequest{
+		Method: http.MethodDelete,
+		Path:   "/moderation/chat",
+		Query:  query,
+	}, nil)
 }

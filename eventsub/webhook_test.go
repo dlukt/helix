@@ -651,12 +651,144 @@ func (markFailDeduplicator) Forget(context.Context, string) error {
 func TestDefaultRegistryDecodesKnownEvents(t *testing.T) {
 	t.Parallel()
 
-	raw := json.RawMessage(`{"user_id":"777","user_login":"viewer","user_name":"Viewer","broadcaster_user_id":"123","broadcaster_user_login":"caster","broadcaster_user_name":"Caster","followed_at":"2024-04-11T12:00:00Z"}`)
-	event, err := eventsub.DefaultRegistry().Decode("channel.follow", "2", raw)
-	if err != nil {
-		t.Fatalf("Decode() error = %v", err)
+	tests := []struct {
+		name             string
+		subscriptionType string
+		version          string
+		raw              json.RawMessage
+		assert           func(*testing.T, any)
+	}{
+		{
+			name:             "channel follow",
+			subscriptionType: "channel.follow",
+			version:          "2",
+			raw:              json.RawMessage(`{"user_id":"777","user_login":"viewer","user_name":"Viewer","broadcaster_user_id":"123","broadcaster_user_login":"caster","broadcaster_user_name":"Caster","followed_at":"2024-04-11T12:00:00Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelFollowEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelFollowEvent", event)
+				}
+				if got := typed.UserID; got != "777" {
+					t.Fatalf("UserID = %q, want %q", got, "777")
+				}
+			},
+		},
+		{
+			name:             "channel subscribe",
+			subscriptionType: "channel.subscribe",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"cool_user","user_name":"Cool_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User","tier":"1000","is_gift":false}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelSubscribeEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelSubscribeEvent", event)
+				}
+				if got := typed.Tier; got != "1000" {
+					t.Fatalf("Tier = %q, want %q", got, "1000")
+				}
+			},
+		},
+		{
+			name:             "channel subscription gift",
+			subscriptionType: "channel.subscription.gift",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"cool_user","user_name":"Cool_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User","total":2,"tier":"1000","cumulative_total":284,"is_anonymous":false}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelSubscriptionGiftEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelSubscriptionGiftEvent", event)
+				}
+				if typed.UserID == nil || *typed.UserID != "1234" {
+					t.Fatalf("UserID = %v, want 1234", typed.UserID)
+				}
+				if typed.CumulativeTotal == nil || *typed.CumulativeTotal != 284 {
+					t.Fatalf("CumulativeTotal = %v, want 284", typed.CumulativeTotal)
+				}
+			},
+		},
+		{
+			name:             "channel subscription end",
+			subscriptionType: "channel.subscription.end",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"cool_user","user_name":"Cool_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User","tier":"1000","is_gift":false}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelSubscriptionEndEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelSubscriptionEndEvent", event)
+				}
+				if got := typed.UserName; got != "Cool_User" {
+					t.Fatalf("UserName = %q, want %q", got, "Cool_User")
+				}
+			},
+		},
+		{
+			name:             "channel subscription message",
+			subscriptionType: "channel.subscription.message",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"cool_user","user_name":"Cool_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User","tier":"1000","message":{"text":"Love the stream! FevziGG","emotes":[{"begin":23,"end":30,"id":"302976485"}]},"cumulative_months":15,"streak_months":1,"duration_months":6}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelSubscriptionMessageEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelSubscriptionMessageEvent", event)
+				}
+				if got := typed.Message.Text; got != "Love the stream! FevziGG" {
+					t.Fatalf("Message.Text = %q, want %q", got, "Love the stream! FevziGG")
+				}
+				if len(typed.Message.Emotes) != 1 || typed.Message.Emotes[0].ID != "302976485" {
+					t.Fatalf("Message.Emotes = %#v, want one emote with id 302976485", typed.Message.Emotes)
+				}
+				if typed.StreakMonths == nil || *typed.StreakMonths != 1 {
+					t.Fatalf("StreakMonths = %v, want 1", typed.StreakMonths)
+				}
+			},
+		},
+		{
+			name:             "channel cheer anonymous",
+			subscriptionType: "channel.cheer",
+			version:          "1",
+			raw:              json.RawMessage(`{"is_anonymous":true,"user_id":null,"user_login":null,"user_name":null,"broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User","message":"pogchamp","bits":1000}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelCheerEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelCheerEvent", event)
+				}
+				if !typed.IsAnonymous {
+					t.Fatal("IsAnonymous = false, want true")
+				}
+				if typed.UserID != nil || typed.UserLogin != nil || typed.UserName != nil {
+					t.Fatalf("anonymous cheer user fields = %#v/%#v/%#v, want nil", typed.UserID, typed.UserLogin, typed.UserName)
+				}
+			},
+		},
+		{
+			name:             "channel raid",
+			subscriptionType: "channel.raid",
+			version:          "1",
+			raw:              json.RawMessage(`{"from_broadcaster_user_id":"1234","from_broadcaster_user_login":"cool_user","from_broadcaster_user_name":"Cool_User","to_broadcaster_user_id":"1337","to_broadcaster_user_login":"cooler_user","to_broadcaster_user_name":"Cooler_User","viewers":9001}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelRaidEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelRaidEvent", event)
+				}
+				if got := typed.Viewers; got != 9001 {
+					t.Fatalf("Viewers = %d, want 9001", got)
+				}
+			},
+		},
 	}
-	if _, ok := event.(eventsub.ChannelFollowEvent); !ok {
-		t.Fatalf("decoded event type = %T, want ChannelFollowEvent", event)
+
+	for _, tt := range tests {
+		event, err := eventsub.DefaultRegistry().Decode(tt.subscriptionType, tt.version, tt.raw)
+		if err != nil {
+			t.Fatalf("%s: Decode() error = %v", tt.name, err)
+		}
+		tt.assert(t, event)
 	}
 }

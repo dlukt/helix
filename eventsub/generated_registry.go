@@ -6,5 +6,11 @@ func newDefaultRegistry() Registry {
 	registry := NewRegistry()
 	registry.Register("channel.follow", "2", decodeInto[ChannelFollowEvent])
 	registry.Register("stream.online", "1", decodeInto[StreamOnlineEvent])
+	registry.Register("channel.subscribe", "1", decodeInto[ChannelSubscribeEvent])
+	registry.Register("channel.subscription.gift", "1", decodeInto[ChannelSubscriptionGiftEvent])
+	registry.Register("channel.subscription.end", "1", decodeInto[ChannelSubscriptionEndEvent])
+	registry.Register("channel.subscription.message", "1", decodeInto[ChannelSubscriptionMessageEvent])
+	registry.Register("channel.cheer", "1", decodeInto[ChannelCheerEvent])
+	registry.Register("channel.raid", "1", decodeInto[ChannelRaidEvent])
 	return registry
 }
