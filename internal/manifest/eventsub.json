@@ -6,9 +6,19 @@
       "go_type": "ChannelFollowEvent"
     },
     {
+      "subscription_type": "channel.update",
+      "version": "2",
+      "go_type": "ChannelUpdateEvent"
+    },
+    {
       "subscription_type": "stream.online",
       "version": "1",
       "go_type": "StreamOnlineEvent"
+    },
+    {
+      "subscription_type": "stream.offline",
+      "version": "1",
+      "go_type": "StreamOfflineEvent"
     },
     {
       "subscription_type": "channel.subscribe",
@@ -31,9 +41,144 @@
       "go_type": "ChannelSubscriptionMessageEvent"
     },
     {
+      "subscription_type": "channel.goal.begin",
+      "version": "1",
+      "go_type": "ChannelGoalBeginEvent"
+    },
+    {
+      "subscription_type": "channel.goal.progress",
+      "version": "1",
+      "go_type": "ChannelGoalProgressEvent"
+    },
+    {
+      "subscription_type": "channel.goal.end",
+      "version": "1",
+      "go_type": "ChannelGoalEndEvent"
+    },
+    {
+      "subscription_type": "channel.poll.begin",
+      "version": "1",
+      "go_type": "ChannelPollBeginEvent"
+    },
+    {
+      "subscription_type": "channel.poll.progress",
+      "version": "1",
+      "go_type": "ChannelPollProgressEvent"
+    },
+    {
+      "subscription_type": "channel.poll.end",
+      "version": "1",
+      "go_type": "ChannelPollEndEvent"
+    },
+    {
+      "subscription_type": "channel.prediction.begin",
+      "version": "1",
+      "go_type": "ChannelPredictionBeginEvent"
+    },
+    {
+      "subscription_type": "channel.prediction.progress",
+      "version": "1",
+      "go_type": "ChannelPredictionProgressEvent"
+    },
+    {
+      "subscription_type": "channel.prediction.lock",
+      "version": "1",
+      "go_type": "ChannelPredictionLockEvent"
+    },
+    {
+      "subscription_type": "channel.prediction.end",
+      "version": "1",
+      "go_type": "ChannelPredictionEndEvent"
+    },
+    {
+      "subscription_type": "channel.charity_campaign.donate",
+      "version": "1",
+      "go_type": "ChannelCharityCampaignDonateEvent"
+    },
+    {
+      "subscription_type": "channel.charity_campaign.start",
+      "version": "1",
+      "go_type": "ChannelCharityCampaignStartEvent"
+    },
+    {
+      "subscription_type": "channel.charity_campaign.progress",
+      "version": "1",
+      "go_type": "ChannelCharityCampaignProgressEvent"
+    },
+    {
+      "subscription_type": "channel.charity_campaign.stop",
+      "version": "1",
+      "go_type": "ChannelCharityCampaignStopEvent"
+    },
+    {
+      "subscription_type": "channel.shared_chat.begin",
+      "version": "1",
+      "go_type": "ChannelSharedChatBeginEvent"
+    },
+    {
+      "subscription_type": "channel.shared_chat.update",
+      "version": "1",
+      "go_type": "ChannelSharedChatUpdateEvent"
+    },
+    {
+      "subscription_type": "channel.shared_chat.end",
+      "version": "1",
+      "go_type": "ChannelSharedChatEndEvent"
+    },
+    {
+      "subscription_type": "channel.shield_mode.begin",
+      "version": "1",
+      "go_type": "ChannelShieldModeBeginEvent"
+    },
+    {
+      "subscription_type": "channel.shield_mode.end",
+      "version": "1",
+      "go_type": "ChannelShieldModeEndEvent"
+    },
+    {
+      "subscription_type": "channel.shoutout.create",
+      "version": "1",
+      "go_type": "ChannelShoutoutCreateEvent"
+    },
+    {
+      "subscription_type": "channel.shoutout.receive",
+      "version": "1",
+      "go_type": "ChannelShoutoutReceiveEvent"
+    },
+    {
       "subscription_type": "channel.cheer",
       "version": "1",
       "go_type": "ChannelCheerEvent"
+    },
+    {
+      "subscription_type": "channel.ban",
+      "version": "1",
+      "go_type": "ChannelBanEvent"
+    },
+    {
+      "subscription_type": "channel.unban",
+      "version": "1",
+      "go_type": "ChannelUnbanEvent"
+    },
+    {
+      "subscription_type": "channel.moderator.add",
+      "version": "1",
+      "go_type": "ChannelModeratorAddEvent"
+    },
+    {
+      "subscription_type": "channel.moderator.remove",
+      "version": "1",
+      "go_type": "ChannelModeratorRemoveEvent"
+    },
+    {
+      "subscription_type": "channel.vip.add",
+      "version": "1",
+      "go_type": "ChannelVIPAddEvent"
+    },
+    {
+      "subscription_type": "channel.vip.remove",
+      "version": "1",
+      "go_type": "ChannelVIPRemoveEvent"
     },
     {
       "subscription_type": "channel.raid",

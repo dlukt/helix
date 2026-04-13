@@ -675,6 +675,57 @@ func TestDefaultRegistryDecodesKnownEvents(t *testing.T) {
 			},
 		},
 		{
+			name:             "channel update",
+			subscriptionType: "channel.update",
+			version:          "2",
+			raw:              json.RawMessage(`{"broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User","title":"Best Stream Ever","language":"en","category_id":"12453","category_name":"Grand Theft Auto","content_classification_labels":["MatureGame"]}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelUpdateEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelUpdateEvent", event)
+				}
+				if got := typed.Title; got != "Best Stream Ever" {
+					t.Fatalf("Title = %q, want %q", got, "Best Stream Ever")
+				}
+				if len(typed.ContentClassificationLabels) != 1 || typed.ContentClassificationLabels[0] != "MatureGame" {
+					t.Fatalf("ContentClassificationLabels = %#v, want [MatureGame]", typed.ContentClassificationLabels)
+				}
+			},
+		},
+		{
+			name:             "stream online",
+			subscriptionType: "stream.online",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"9001","broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User","type":"live","started_at":"2020-10-11T10:11:12.123Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.StreamOnlineEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want StreamOnlineEvent", event)
+				}
+				if got := typed.ID; got != "9001" {
+					t.Fatalf("ID = %q, want %q", got, "9001")
+				}
+			},
+		},
+		{
+			name:             "stream offline",
+			subscriptionType: "stream.offline",
+			version:          "1",
+			raw:              json.RawMessage(`{"broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.StreamOfflineEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want StreamOfflineEvent", event)
+				}
+				if got := typed.BroadcasterUserLogin; got != "cool_user" {
+					t.Fatalf("BroadcasterUserLogin = %q, want %q", got, "cool_user")
+				}
+			},
+		},
+		{
 			name:             "channel subscribe",
 			subscriptionType: "channel.subscribe",
 			version:          "1",
@@ -748,6 +799,369 @@ func TestDefaultRegistryDecodesKnownEvents(t *testing.T) {
 			},
 		},
 		{
+			name:             "channel goal begin",
+			subscriptionType: "channel.goal.begin",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"12345-cool-event","broadcaster_user_id":"141981764","broadcaster_user_name":"TwitchDev","broadcaster_user_login":"twitchdev","type":"subscription","description":"Help me get partner!","current_amount":100,"target_amount":220,"started_at":"2021-07-15T17:16:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelGoalBeginEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelGoalBeginEvent", event)
+				}
+				if got := typed.TargetAmount; got != 220 {
+					t.Fatalf("TargetAmount = %d, want 220", got)
+				}
+			},
+		},
+		{
+			name:             "channel goal progress",
+			subscriptionType: "channel.goal.progress",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"12345-cool-event","broadcaster_user_id":"141981764","broadcaster_user_name":"TwitchDev","broadcaster_user_login":"twitchdev","type":"subscription","description":"Help me get partner!","current_amount":120,"target_amount":220,"started_at":"2021-07-15T17:16:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelGoalProgressEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelGoalProgressEvent", event)
+				}
+				if got := typed.CurrentAmount; got != 120 {
+					t.Fatalf("CurrentAmount = %d, want 120", got)
+				}
+			},
+		},
+		{
+			name:             "channel goal end",
+			subscriptionType: "channel.goal.end",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"12345-abc-678-defgh","broadcaster_user_id":"141981764","broadcaster_user_name":"TwitchDev","broadcaster_user_login":"twitchdev","type":"subscription","description":"Help me get partner!","is_achieved":false,"current_amount":180,"target_amount":220,"started_at":"2021-07-15T17:16:03.17106713Z","ended_at":"2020-07-16T17:16:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelGoalEndEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelGoalEndEvent", event)
+				}
+				if typed.IsAchieved {
+					t.Fatal("IsAchieved = true, want false")
+				}
+				if got := typed.Description; got != "Help me get partner!" {
+					t.Fatalf("Description = %q, want %q", got, "Help me get partner!")
+				}
+			},
+		},
+		{
+			name:             "channel poll begin",
+			subscriptionType: "channel.poll.begin",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"1243456","broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User","title":"Aren’t shoes just really hard socks?","choices":[{"id":"123","title":"Yeah!"},{"id":"124","title":"No!"},{"id":"125","title":"Maybe!"}],"bits_voting":{"is_enabled":true,"amount_per_vote":10},"channel_points_voting":{"is_enabled":true,"amount_per_vote":10},"started_at":"2020-07-15T17:16:03.17106713Z","ends_at":"2020-07-15T17:16:08.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelPollBeginEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelPollBeginEvent", event)
+				}
+				if got := len(typed.Choices); got != 3 {
+					t.Fatalf("len(Choices) = %d, want 3", got)
+				}
+				if !typed.BitsVoting.IsEnabled {
+					t.Fatal("BitsVoting.IsEnabled = false, want true")
+				}
+			},
+		},
+		{
+			name:             "channel poll progress",
+			subscriptionType: "channel.poll.progress",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"1243456","broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User","title":"Aren’t shoes just really hard socks?","choices":[{"id":"123","title":"Yeah!","bits_votes":5,"channel_points_votes":7,"votes":12},{"id":"124","title":"No!","bits_votes":10,"channel_points_votes":4,"votes":14},{"id":"125","title":"Maybe!","bits_votes":0,"channel_points_votes":7,"votes":7}],"bits_voting":{"is_enabled":true,"amount_per_vote":10},"channel_points_voting":{"is_enabled":true,"amount_per_vote":10},"started_at":"2020-07-15T17:16:03.17106713Z","ends_at":"2020-07-15T17:16:08.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelPollProgressEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelPollProgressEvent", event)
+				}
+				if got := typed.Choices[1].Votes; got != 14 {
+					t.Fatalf("Choices[1].Votes = %d, want 14", got)
+				}
+			},
+		},
+		{
+			name:             "channel poll end",
+			subscriptionType: "channel.poll.end",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"1243456","broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User","title":"Aren’t shoes just really hard socks?","choices":[{"id":"123","title":"Blue","bits_votes":50,"channel_points_votes":70,"votes":120},{"id":"124","title":"Yellow","bits_votes":100,"channel_points_votes":40,"votes":140},{"id":"125","title":"Green","bits_votes":10,"channel_points_votes":70,"votes":80}],"bits_voting":{"is_enabled":true,"amount_per_vote":10},"channel_points_voting":{"is_enabled":true,"amount_per_vote":10},"status":"completed","started_at":"2020-07-15T17:16:03.17106713Z","ended_at":"2020-07-15T17:16:11.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelPollEndEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelPollEndEvent", event)
+				}
+				if got := typed.Status; got != "completed" {
+					t.Fatalf("Status = %q, want %q", got, "completed")
+				}
+				if got := typed.Choices[0].BitsVotes; got != 50 {
+					t.Fatalf("Choices[0].BitsVotes = %d, want 50", got)
+				}
+			},
+		},
+		{
+			name:             "channel prediction begin",
+			subscriptionType: "channel.prediction.begin",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"1243456","broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User","title":"Aren’t shoes just really hard socks?","outcomes":[{"id":"1243456","title":"Yeah!","color":"blue"},{"id":"2243456","title":"No!","color":"pink"}],"started_at":"2020-07-15T17:16:03.17106713Z","locks_at":"2020-07-15T17:21:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelPredictionBeginEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelPredictionBeginEvent", event)
+				}
+				if got := len(typed.Outcomes); got != 2 {
+					t.Fatalf("len(Outcomes) = %d, want 2", got)
+				}
+				if got := typed.Outcomes[0].Color; got != "blue" {
+					t.Fatalf("Outcomes[0].Color = %q, want %q", got, "blue")
+				}
+			},
+		},
+		{
+			name:             "channel prediction progress",
+			subscriptionType: "channel.prediction.progress",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"1243456","broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User","title":"Aren’t shoes just really hard socks?","outcomes":[{"id":"1243456","title":"Yeah!","color":"blue","users":10,"channel_points":15000,"top_predictors":[{"user_name":"Cool_User","user_login":"cool_user","user_id":"1234","channel_points_won":null,"channel_points_used":500}]},{"id":"2243456","title":"No!","color":"pink","users":3,"channel_points":5000,"top_predictors":[{"user_name":"Cooler_User","user_login":"cooler_user","user_id":"12345","channel_points_won":null,"channel_points_used":5000}]}],"started_at":"2020-07-15T17:16:03.17106713Z","locks_at":"2020-07-15T17:21:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelPredictionProgressEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelPredictionProgressEvent", event)
+				}
+				if got := typed.Outcomes[0].TopPredictors[0].ChannelPointsUsed; got != 500 {
+					t.Fatalf("TopPredictors[0].ChannelPointsUsed = %d, want 500", got)
+				}
+			},
+		},
+		{
+			name:             "channel prediction lock",
+			subscriptionType: "channel.prediction.lock",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"1243456","broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User","title":"Aren’t shoes just really hard socks?","outcomes":[{"id":"1243456","title":"Yeah!","color":"blue","users":10,"channel_points":15000,"top_predictors":[{"user_name":"Cool_User","user_login":"cool_user","user_id":"1234","channel_points_won":null,"channel_points_used":500}]},{"id":"2243456","title":"No!","color":"pink","users":3,"channel_points":5000,"top_predictors":[{"user_name":"Cooler_User","user_login":"cooler_user","user_id":"12345","channel_points_won":null,"channel_points_used":5000}]}],"started_at":"2020-07-15T17:16:03.17106713Z","locked_at":"2020-07-15T17:21:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelPredictionLockEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelPredictionLockEvent", event)
+				}
+				if got := typed.Outcomes[1].Users; got != 3 {
+					t.Fatalf("Outcomes[1].Users = %d, want 3", got)
+				}
+			},
+		},
+		{
+			name:             "channel prediction end",
+			subscriptionType: "channel.prediction.end",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"1243456","broadcaster_user_id":"1337","broadcaster_user_login":"cool_user","broadcaster_user_name":"Cool_User","title":"Aren’t shoes just really hard socks?","winning_outcome_id":"12345","outcomes":[{"id":"12345","title":"Yeah!","color":"blue","users":2,"channel_points":15000,"top_predictors":[{"user_name":"Cool_User","user_login":"cool_user","user_id":"1234","channel_points_won":10000,"channel_points_used":500}]},{"id":"22435","title":"No!","color":"pink","users":2,"channel_points":200,"top_predictors":[{"user_name":"Cooler_User","user_login":"cooler_user","user_id":"12345","channel_points_won":null,"channel_points_used":100}]}],"status":"resolved","started_at":"2020-07-15T17:16:03.17106713Z","ended_at":"2020-07-15T17:16:11.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelPredictionEndEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelPredictionEndEvent", event)
+				}
+				if typed.WinningOutcomeID == nil || *typed.WinningOutcomeID != "12345" {
+					t.Fatalf("WinningOutcomeID = %v, want 12345", typed.WinningOutcomeID)
+				}
+				if got := typed.Outcomes[0].TopPredictors[0].ChannelPointsWon; got == nil || *got != 10000 {
+					t.Fatalf("ChannelPointsWon = %v, want 10000", got)
+				}
+			},
+		},
+		{
+			name:             "channel charity campaign donate",
+			subscriptionType: "channel.charity_campaign.donate",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"a1b2c3-aabb-4455-d1e2f3","campaign_id":"123-abc-456-def","broadcaster_user_id":"123456","broadcaster_user_name":"SunnySideUp","broadcaster_user_login":"sunnysideup","user_id":"654321","user_login":"generoususer1","user_name":"GenerousUser1","charity_name":"Example name","charity_description":"Example description","charity_logo":"https://abc.cloudfront.net/ppgf/1000/100.png","charity_website":"https://www.example.com","amount":{"value":10000,"decimal_places":2,"currency":"USD"}}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelCharityCampaignDonateEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelCharityCampaignDonateEvent", event)
+				}
+				if got := typed.Amount.Value; got != 10000 {
+					t.Fatalf("Amount.Value = %d, want 10000", got)
+				}
+				if got := typed.UserLogin; got != "generoususer1" {
+					t.Fatalf("UserLogin = %q, want %q", got, "generoususer1")
+				}
+			},
+		},
+		{
+			name:             "channel charity campaign start",
+			subscriptionType: "channel.charity_campaign.start",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"123-abc-456-def","broadcaster_user_id":"123456","broadcaster_user_name":"SunnySideUp","broadcaster_user_login":"sunnysideup","charity_name":"Example name","charity_description":"Example description","charity_logo":"https://abc.cloudfront.net/ppgf/1000/100.png","charity_website":"https://www.example.com","current_amount":{"value":0,"decimal_places":2,"currency":"USD"},"target_amount":{"value":1500000,"decimal_places":2,"currency":"USD"},"started_at":"2022-07-26T17:00:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelCharityCampaignStartEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelCharityCampaignStartEvent", event)
+				}
+				if got := typed.TargetAmount.Currency; got != "USD" {
+					t.Fatalf("TargetAmount.Currency = %q, want %q", got, "USD")
+				}
+				if got := typed.BroadcasterID; got != "123456" {
+					t.Fatalf("BroadcasterID = %q, want %q", got, "123456")
+				}
+			},
+		},
+		{
+			name:             "channel charity campaign progress",
+			subscriptionType: "channel.charity_campaign.progress",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"123-abc-456-def","broadcaster_user_id":"123456","broadcaster_user_name":"SunnySideUp","broadcaster_user_login":"sunnysideup","charity_name":"Example name","charity_description":"Example description","charity_logo":"https://abc.cloudfront.net/ppgf/1000/100.png","charity_website":"https://www.example.com","current_amount":{"value":260000,"decimal_places":2,"currency":"USD"},"target_amount":{"value":1500000,"decimal_places":2,"currency":"USD"}}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelCharityCampaignProgressEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelCharityCampaignProgressEvent", event)
+				}
+				if got := typed.CurrentAmount.Value; got != 260000 {
+					t.Fatalf("CurrentAmount.Value = %d, want 260000", got)
+				}
+				if got := typed.BroadcasterName; got != "SunnySideUp" {
+					t.Fatalf("BroadcasterName = %q, want %q", got, "SunnySideUp")
+				}
+			},
+		},
+		{
+			name:             "channel charity campaign stop",
+			subscriptionType: "channel.charity_campaign.stop",
+			version:          "1",
+			raw:              json.RawMessage(`{"id":"123-abc-456-def","broadcaster_user_id":"123456","broadcaster_user_name":"SunnySideUp","broadcaster_user_login":"sunnysideup","charity_name":"Example name","charity_description":"Example description","charity_logo":"https://abc.cloudfront.net/ppgf/1000/100.png","charity_website":"https://www.example.com","current_amount":{"value":1450000,"decimal_places":2,"currency":"USD"},"target_amount":{"value":1500000,"decimal_places":2,"currency":"USD"},"stopped_at":"2022-07-26T22:00:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelCharityCampaignStopEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelCharityCampaignStopEvent", event)
+				}
+				if got := typed.BroadcasterLogin; got != "sunnysideup" {
+					t.Fatalf("BroadcasterLogin = %q, want %q", got, "sunnysideup")
+				}
+			},
+		},
+		{
+			name:             "channel shared chat begin",
+			subscriptionType: "channel.shared_chat.begin",
+			version:          "1",
+			raw:              json.RawMessage(`{"session_id":"2b64a92a-dbb8-424e-b1c3-304423ba1b6f","broadcaster_user_id":"1971641","broadcaster_user_login":"streamer","broadcaster_user_name":"streamer","host_broadcaster_user_id":"1971641","host_broadcaster_user_login":"streamer","host_broadcaster_user_name":"streamer","participants":[{"broadcaster_user_id":"1971641","broadcaster_user_name":"streamer","broadcaster_user_login":"streamer"},{"broadcaster_user_id":"112233","broadcaster_user_name":"streamer33","broadcaster_user_login":"streamer33"}]}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelSharedChatBeginEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelSharedChatBeginEvent", event)
+				}
+				if got := len(typed.Participants); got != 2 {
+					t.Fatalf("len(Participants) = %d, want 2", got)
+				}
+			},
+		},
+		{
+			name:             "channel shared chat update",
+			subscriptionType: "channel.shared_chat.update",
+			version:          "1",
+			raw:              json.RawMessage(`{"session_id":"2b64a92a-dbb8-424e-b1c3-304423ba1b6f","broadcaster_user_id":"1971641","broadcaster_user_login":"streamer","broadcaster_user_name":"streamer","host_broadcaster_user_id":"1971641","host_broadcaster_user_login":"streamer","host_broadcaster_user_name":"streamer","participants":[{"broadcaster_user_id":"1971641","broadcaster_user_name":"streamer","broadcaster_user_login":"streamer"},{"broadcaster_user_id":"112233","broadcaster_user_name":"streamer33","broadcaster_user_login":"streamer33"},{"broadcaster_user_id":"332211","broadcaster_user_name":"streamer11","broadcaster_user_login":"streamer11"}]}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelSharedChatUpdateEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelSharedChatUpdateEvent", event)
+				}
+				if got := typed.Participants[2].BroadcasterUserLogin; got != "streamer11" {
+					t.Fatalf("Participants[2].BroadcasterUserLogin = %q, want %q", got, "streamer11")
+				}
+			},
+		},
+		{
+			name:             "channel shared chat end",
+			subscriptionType: "channel.shared_chat.end",
+			version:          "1",
+			raw:              json.RawMessage(`{"session_id":"2b64a92a-dbb8-424e-b1c3-304423ba1b6f","broadcaster_user_id":"1971641","broadcaster_user_login":"streamer","broadcaster_user_name":"streamer","host_broadcaster_user_id":"1971641","host_broadcaster_user_login":"streamer","host_broadcaster_user_name":"streamer"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelSharedChatEndEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelSharedChatEndEvent", event)
+				}
+				if got := typed.SessionID; got != "2b64a92a-dbb8-424e-b1c3-304423ba1b6f" {
+					t.Fatalf("SessionID = %q, want session id", got)
+				}
+			},
+		},
+		{
+			name:             "channel shield mode begin",
+			subscriptionType: "channel.shield_mode.begin",
+			version:          "1",
+			raw:              json.RawMessage(`{"broadcaster_user_id":"12345","broadcaster_user_name":"SimplySimple","broadcaster_user_login":"simplysimple","moderator_user_id":"98765","moderator_user_name":"ParticularlyParticular123","moderator_user_login":"particularlyparticular123","started_at":"2022-07-26T17:00:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelShieldModeBeginEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelShieldModeBeginEvent", event)
+				}
+				if got := typed.ModeratorUserID; got != "98765" {
+					t.Fatalf("ModeratorUserID = %q, want %q", got, "98765")
+				}
+			},
+		},
+		{
+			name:             "channel shield mode end",
+			subscriptionType: "channel.shield_mode.end",
+			version:          "1",
+			raw:              json.RawMessage(`{"broadcaster_user_id":"12345","broadcaster_user_name":"SimplySimple","broadcaster_user_login":"simplysimple","moderator_user_id":"98765","moderator_user_name":"ParticularlyParticular123","moderator_user_login":"particularlyparticular123","ended_at":"2022-07-27T01:30:23.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelShieldModeEndEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelShieldModeEndEvent", event)
+				}
+				if got := typed.BroadcasterUserLogin; got != "simplysimple" {
+					t.Fatalf("BroadcasterUserLogin = %q, want %q", got, "simplysimple")
+				}
+			},
+		},
+		{
+			name:             "channel shoutout create",
+			subscriptionType: "channel.shoutout.create",
+			version:          "1",
+			raw:              json.RawMessage(`{"broadcaster_user_id":"12345","broadcaster_user_name":"SimplySimple","broadcaster_user_login":"simplysimple","moderator_user_id":"98765","moderator_user_name":"ParticularlyParticular123","moderator_user_login":"particularlyparticular123","to_broadcaster_user_id":"626262","to_broadcaster_user_name":"SandySanderman","to_broadcaster_user_login":"sandysanderman","started_at":"2022-07-26T17:00:03.17106713Z","viewer_count":860,"cooldown_ends_at":"2022-07-26T17:02:03.17106713Z","target_cooldown_ends_at":"2022-07-26T18:00:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelShoutoutCreateEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelShoutoutCreateEvent", event)
+				}
+				if got := typed.ToBroadcasterUserLogin; got != "sandysanderman" {
+					t.Fatalf("ToBroadcasterUserLogin = %q, want %q", got, "sandysanderman")
+				}
+				if got := typed.ViewerCount; got != 860 {
+					t.Fatalf("ViewerCount = %d, want 860", got)
+				}
+			},
+		},
+		{
+			name:             "channel shoutout receive",
+			subscriptionType: "channel.shoutout.receive",
+			version:          "1",
+			raw:              json.RawMessage(`{"broadcaster_user_id":"626262","broadcaster_user_name":"SandySanderman","broadcaster_user_login":"sandysanderman","from_broadcaster_user_id":"12345","from_broadcaster_user_name":"SimplySimple","from_broadcaster_user_login":"simplysimple","viewer_count":860,"started_at":"2022-07-26T17:00:03.17106713Z"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelShoutoutReceiveEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelShoutoutReceiveEvent", event)
+				}
+				if got := typed.FromBroadcasterUserName; got != "SimplySimple" {
+					t.Fatalf("FromBroadcasterUserName = %q, want %q", got, "SimplySimple")
+				}
+			},
+		},
+		{
 			name:             "channel cheer anonymous",
 			subscriptionType: "channel.cheer",
 			version:          "1",
@@ -763,6 +1177,105 @@ func TestDefaultRegistryDecodesKnownEvents(t *testing.T) {
 				}
 				if typed.UserID != nil || typed.UserLogin != nil || typed.UserName != nil {
 					t.Fatalf("anonymous cheer user fields = %#v/%#v/%#v, want nil", typed.UserID, typed.UserLogin, typed.UserName)
+				}
+			},
+		},
+		{
+			name:             "channel ban",
+			subscriptionType: "channel.ban",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"cool_user","user_name":"Cool_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User","moderator_user_id":"1339","moderator_user_login":"mod_user","moderator_user_name":"Mod_User","reason":"Offensive language","banned_at":"2020-07-15T18:15:11.17106713Z","ends_at":"2020-07-15T18:16:11.17106713Z","is_permanent":false}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelBanEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelBanEvent", event)
+				}
+				if got := typed.Reason; got != "Offensive language" {
+					t.Fatalf("Reason = %q, want %q", got, "Offensive language")
+				}
+				if typed.EndsAt == nil {
+					t.Fatal("EndsAt = nil, want timeout end time")
+				}
+			},
+		},
+		{
+			name:             "channel unban",
+			subscriptionType: "channel.unban",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"cool_user","user_name":"Cool_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User","moderator_user_id":"1339","moderator_user_login":"mod_user","moderator_user_name":"Mod_User"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelUnbanEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelUnbanEvent", event)
+				}
+				if got := typed.ModeratorUserName; got != "Mod_User" {
+					t.Fatalf("ModeratorUserName = %q, want %q", got, "Mod_User")
+				}
+			},
+		},
+		{
+			name:             "channel moderator add",
+			subscriptionType: "channel.moderator.add",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"mod_user","user_name":"Mod_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelModeratorAddEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelModeratorAddEvent", event)
+				}
+				if got := typed.UserLogin; got != "mod_user" {
+					t.Fatalf("UserLogin = %q, want %q", got, "mod_user")
+				}
+			},
+		},
+		{
+			name:             "channel moderator remove",
+			subscriptionType: "channel.moderator.remove",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"not_mod_user","user_name":"Not_Mod_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelModeratorRemoveEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelModeratorRemoveEvent", event)
+				}
+				if got := typed.UserName; got != "Not_Mod_User" {
+					t.Fatalf("UserName = %q, want %q", got, "Not_Mod_User")
+				}
+			},
+		},
+		{
+			name:             "channel vip add",
+			subscriptionType: "channel.vip.add",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"mod_user","user_name":"Mod_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelVIPAddEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelVIPAddEvent", event)
+				}
+				if got := typed.BroadcasterUserName; got != "Cooler_User" {
+					t.Fatalf("BroadcasterUserName = %q, want %q", got, "Cooler_User")
+				}
+			},
+		},
+		{
+			name:             "channel vip remove",
+			subscriptionType: "channel.vip.remove",
+			version:          "1",
+			raw:              json.RawMessage(`{"user_id":"1234","user_login":"mod_user","user_name":"Mod_User","broadcaster_user_id":"1337","broadcaster_user_login":"cooler_user","broadcaster_user_name":"Cooler_User"}`),
+			assert: func(t *testing.T, event any) {
+				t.Helper()
+				typed, ok := event.(eventsub.ChannelVIPRemoveEvent)
+				if !ok {
+					t.Fatalf("decoded event type = %T, want ChannelVIPRemoveEvent", event)
+				}
+				if got := typed.UserID; got != "1234" {
+					t.Fatalf("UserID = %q, want %q", got, "1234")
 				}
 			},
 		},
