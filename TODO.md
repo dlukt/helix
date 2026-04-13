@@ -31,6 +31,15 @@ the Twitch Helix API, OAuth flows, and EventSub runtimes.
   - `Clips`
   - `Videos`
   - `EventSub`
+- Current Helix endpoint coverage is no longer just the bare read-path skeleton.
+- Notable currently implemented areas include:
+  - `Users`: get users, update user, get authorization by user, get/block/unblock user blocks, get installed extensions, get active extensions, update active extensions
+  - `Channels`: get channel info, get channel editors, get VIPs, add/remove VIPs, update channel info
+  - `Chat`: get/update chat settings, get chatters, send announcements, send shoutouts, send chat messages, get/update user chat color, delete chat messages
+  - `Moderation`: get/add/remove moderators, get banned users, ban/unban users, get/add/remove blocked terms, get/update shield mode status
+  - `Clips`: get clips, create live clips, create clips from VODs, get clip download URLs
+  - `Videos`: get videos, delete videos
+  - plus the earlier `Streams`, `Search`, `Games`, `Schedule`, `Markers`, `Raids`, and `EventSub` slices already in place
 
 ### OAuth
 
@@ -192,30 +201,9 @@ This includes:
 The remaining work is now mostly about breadth and generation, not basic
 transport or runtime foundations.
 
-### 1. Finish broader EventSub reference coverage
+### 1. Expand Helix API endpoint coverage
 
-This is the clearest next track.
-
-Remaining work:
-
-- add the rest of the documented EventSub subscription types and versions
-- prioritize larger families that are not yet modeled
-- keep the typed API helpers, manifest entries, generated registry, and tests in
-  sync for each added family
-
-Notes:
-
-- the remaining EventSub gaps are now narrower and are more likely to be
-  specialized payloads, newly documented versions, or transport-specific edge
-  cases than the major chat/moderation families
-- the unusual payload shapes are now mostly the exception cases rather than the
-  norm, so it is worth periodically diffing the manifest against the live
-  Twitch docs before choosing the next slice
-
-### 2. Expand Helix API endpoint coverage
-
-The client already has a useful set of service groups, but the endpoint surface
-inside those services is still incomplete.
+This is now the clearest next track.
 
 Remaining work:
 
@@ -228,6 +216,31 @@ Recommended order:
 
 1. deepen coverage inside already-created service groups
 2. only then add entirely new service groups
+
+High-value likely next slices:
+
+- finish more `Moderation` compact endpoints
+- continue `Users` and `Channels` families where read/write pairs are still incomplete
+- add adjacent `Clips`, `Videos`, or `Search` endpoints where the domain model is already established
+
+### 2. Keep EventSub coverage aligned with the live Twitch reference
+
+The EventSub implementation is now much closer to the live documented surface
+than it was earlier in the project.
+
+Remaining work:
+
+- periodically diff `internal/manifest/eventsub.json` against the live Twitch
+  docs to catch newly added types or versions
+- add newly documented EventSub subscription types and versions as they appear
+- keep typed API helpers, manifest entries, generated registry, and tests in
+  sync for any new EventSub additions
+
+Notes:
+
+- the remaining EventSub work is now more likely to be incremental maintenance,
+  newly published versions, or unusual transport/payload edge cases than large
+  missing families
 
 ### 3. Expand manifests and code generation beyond EventSub registry generation
 

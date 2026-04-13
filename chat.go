@@ -58,6 +58,24 @@ type GetChattersResponse struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// GetUserChatColorParams filters Get User Chat Color requests.
+type GetUserChatColorParams struct {
+	UserIDs []string
+}
+
+// UserChatColor describes a user's current chat color.
+type UserChatColor struct {
+	UserID    string `json:"user_id"`
+	UserLogin string `json:"user_login"`
+	UserName  string `json:"user_name"`
+	Color     string `json:"color"`
+}
+
+// GetUserChatColorResponse is the typed response for Get User Chat Color.
+type GetUserChatColorResponse struct {
+	Data []UserChatColor `json:"data"`
+}
+
 // UpdateChatSettingsParams identifies which broadcaster chat settings to update.
 type UpdateChatSettingsParams struct {
 	BroadcasterID string
@@ -107,6 +125,12 @@ type SendShoutoutParams struct {
 	FromBroadcasterID string
 	ToBroadcasterID   string
 	ModeratorID       string
+}
+
+// UpdateUserChatColorParams identifies the user and target color for Update User Chat Color.
+type UpdateUserChatColorParams struct {
+	UserID string
+	Color  string
 }
 
 // SendMessageRequest is the request body for Send Chat Message.
@@ -175,6 +199,23 @@ func (s *ChatService) GetChatters(ctx context.Context, params GetChattersParams)
 	return &resp, meta, nil
 }
 
+// GetUserChatColor fetches one or more users' configured chat colors.
+func (s *ChatService) GetUserChatColor(ctx context.Context, params GetUserChatColorParams) (*GetUserChatColorResponse, *Response, error) {
+	query := url.Values{}
+	addRepeated(query, "user_id", params.UserIDs)
+
+	var resp GetUserChatColorResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/chat/color",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
 // UpdateSettings updates the broadcaster's chat settings.
 func (s *ChatService) UpdateSettings(ctx context.Context, params UpdateChatSettingsParams, req UpdateChatSettingsRequest) (*UpdateChatSettingsResponse, *Response, error) {
 	query := url.Values{}
@@ -205,6 +246,19 @@ func (s *ChatService) SendAnnouncement(ctx context.Context, params SendAnnouncem
 		Path:   "/chat/announcements",
 		Query:  query,
 		Body:   req,
+	}, nil)
+}
+
+// UpdateUserChatColor updates the color used for a user's name in chat.
+func (s *ChatService) UpdateUserChatColor(ctx context.Context, params UpdateUserChatColorParams) (*Response, error) {
+	query := url.Values{}
+	query.Set("user_id", params.UserID)
+	query.Set("color", params.Color)
+
+	return s.client.Do(ctx, RawRequest{
+		Method: http.MethodPut,
+		Path:   "/chat/color",
+		Query:  query,
 	}, nil)
 }
 

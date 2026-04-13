@@ -57,6 +57,16 @@ type GetVideosResponse struct {
 	Data []Video
 }
 
+// DeleteVideosParams identifies which videos to delete.
+type DeleteVideosParams struct {
+	IDs []string
+}
+
+// DeleteVideosResponse is the typed response for Delete Videos.
+type DeleteVideosResponse struct {
+	Data []string `json:"data"`
+}
+
 // Get fetches videos by ID or filter.
 func (s *VideosService) Get(ctx context.Context, params GetVideosParams) (*GetVideosResponse, *Response, error) {
 	if err := validateGetVideosParams(params); err != nil {
@@ -97,6 +107,30 @@ func (s *VideosService) Get(ctx context.Context, params GetVideosParams) (*GetVi
 	return &GetVideosResponse{Data: data}, meta, nil
 }
 
+// Delete deletes one or more videos.
+func (s *VideosService) Delete(ctx context.Context, params DeleteVideosParams) (*DeleteVideosResponse, *Response, error) {
+	if len(params.IDs) == 0 {
+		return nil, nil, fmt.Errorf("helix: videos delete requires at least one id")
+	}
+	if len(params.IDs) > 5 {
+		return nil, nil, fmt.Errorf("helix: videos delete supports at most 5 ids")
+	}
+
+	query := url.Values{}
+	addRepeated(query, "id", params.IDs)
+
+	var resp DeleteVideosResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodDelete,
+		Path:   "/videos",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
 func validateGetVideosParams(params GetVideosParams) error {
 	hasIDs := len(params.IDs) > 0
 	hasUserID := params.UserID != ""
@@ -120,11 +154,11 @@ func validateGetVideosParams(params GetVideosParams) error {
 		return fmt.Errorf("helix: videos id, user_id, and game_id parameters are mutually exclusive")
 	}
 
-	if params.Language != "" && !hasGameID {
-		return fmt.Errorf("helix: videos language filter requires game_id")
-	}
 	if (params.Period != "" || params.Sort != "" || params.Type != "" || params.First > 0) && !(hasUserID || hasGameID) {
 		return fmt.Errorf("helix: videos period, sort, type, and first filters require user_id or game_id")
+	}
+	if params.Language != "" && !hasGameID {
+		return fmt.Errorf("helix: videos language filter requires game_id")
 	}
 	if (params.After != "" || params.Before != "") && !hasUserID {
 		return fmt.Errorf("helix: videos after and before cursors require user_id")
