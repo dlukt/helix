@@ -41,16 +41,18 @@ type Client struct {
 	baseURL     string
 	userAgent   string
 
-	Users    *UsersService
-	Channels *ChannelsService
-	Streams  *StreamsService
-	Schedule *ScheduleService
-	Markers  *MarkersService
-	Games    *GamesService
-	Search   *SearchService
-	Clips    *ClipsService
-	Videos   *VideosService
-	EventSub *EventSubService
+	Users      *UsersService
+	Channels   *ChannelsService
+	Streams    *StreamsService
+	Chat       *ChatService
+	Moderation *ModerationService
+	Schedule   *ScheduleService
+	Markers    *MarkersService
+	Games      *GamesService
+	Search     *SearchService
+	Clips      *ClipsService
+	Videos     *VideosService
+	EventSub   *EventSubService
 }
 
 // New creates a new Helix client.
@@ -79,6 +81,8 @@ func New(cfg Config) (*Client, error) {
 	c.Users = &UsersService{client: c}
 	c.Channels = &ChannelsService{client: c}
 	c.Streams = &StreamsService{client: c}
+	c.Chat = &ChatService{client: c}
+	c.Moderation = &ModerationService{client: c}
 	c.Schedule = &ScheduleService{client: c}
 	c.Markers = &MarkersService{client: c}
 	c.Games = &GamesService{client: c}

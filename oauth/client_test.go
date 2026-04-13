@@ -381,6 +381,75 @@ func TestClientRefreshTokenOmitsClientSecretForPublicClients(t *testing.T) {
 	}
 }
 
+func TestClientRefreshTokenURLencodesRefreshToken(t *testing.T) {
+	t.Parallel()
+
+	const refreshToken = "refresh+/token=with spaces&symbols"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		if got := r.URL.Path; got != "/token" {
+			t.Fatalf("path = %q, want /token", got)
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm() error = %v", err)
+		}
+		if got := r.Form.Get("refresh_token"); got != refreshToken {
+			t.Fatalf("refresh_token = %q, want %q", got, refreshToken)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token":  "refreshed-access-token",
+			"refresh_token": "rotated-refresh-token",
+			"expires_in":    3600,
+			"token_type":    "bearer",
+		})
+	}))
+	defer server.Close()
+
+	client := oauth.NewClient(oauth.Config{
+		ClientID: "public-client-id",
+		BaseURL:  server.URL,
+	})
+
+	if _, err := client.RefreshToken(context.Background(), refreshToken); err != nil {
+		t.Fatalf("RefreshToken() error = %v", err)
+	}
+}
+
+func TestClientRefreshTokenReturnsTypedFailure(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":  400,
+			"message": "invalid refresh token",
+		})
+	}))
+	defer server.Close()
+
+	client := oauth.NewClient(oauth.Config{
+		ClientID: "public-client-id",
+		BaseURL:  server.URL,
+	})
+
+	_, err := client.RefreshToken(context.Background(), "bad-refresh-token")
+	if err == nil {
+		t.Fatal("RefreshToken() error = nil, want typed error")
+	}
+	var oauthErr *oauth.ErrorResponse
+	if !errors.As(err, &oauthErr) {
+		t.Fatalf("RefreshToken() error type = %T, want *oauth.ErrorResponse", err)
+	}
+	if got := oauthErr.Message; got != "invalid refresh token" {
+		t.Fatalf("Message = %q, want %q", got, "invalid refresh token")
+	}
+}
+
 func TestClientPollDeviceAuthorizationHandlesPendingAndSlowDown(t *testing.T) {
 	t.Parallel()
 

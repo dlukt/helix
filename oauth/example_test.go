@@ -27,3 +27,11 @@ func ExampleNewForceRefreshSource() {
 
 	_, _ = source.Token(context.Background())
 }
+
+func ExampleNewMemoryTokenStore() {
+	store := oauth.NewMemoryTokenStore(oauth.Token{
+		AccessToken: "access-token",
+	})
+
+	_, _ = store.Load(context.Background())
+}

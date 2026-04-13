@@ -292,6 +292,88 @@ func TestForceRefreshSourceWrapsPlainTokenSource(t *testing.T) {
 	}
 }
 
+func TestMemoryTokenStoreLoadsAndSaves(t *testing.T) {
+	t.Parallel()
+
+	store := oauth.NewMemoryTokenStore(oauth.Token{
+		AccessToken:  "initial-access",
+		RefreshToken: "initial-refresh",
+		Scopes:       []string{"chat:read"},
+	})
+
+	token, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got := token.AccessToken; got != "initial-access" {
+		t.Fatalf("AccessToken = %q, want %q", got, "initial-access")
+	}
+	if got := token.Scopes; len(got) != 1 || got[0] != "chat:read" {
+		t.Fatalf("Scopes = %v, want %v", got, []string{"chat:read"})
+	}
+
+	if err := store.Save(context.Background(), oauth.Token{
+		AccessToken:  "updated-access",
+		RefreshToken: "updated-refresh",
+		Scopes:       []string{"chat:edit"},
+	}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	token, err = store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load() after Save error = %v", err)
+	}
+	if got := token.RefreshToken; got != "updated-refresh" {
+		t.Fatalf("RefreshToken = %q, want %q", got, "updated-refresh")
+	}
+	if got := token.Scopes; len(got) != 1 || got[0] != "chat:edit" {
+		t.Fatalf("Scopes = %v, want %v", got, []string{"chat:edit"})
+	}
+}
+
+func TestMemoryTokenStoreClonesScopes(t *testing.T) {
+	t.Parallel()
+
+	initial := oauth.Token{
+		AccessToken: "initial-access",
+		Scopes:      []string{"chat:read"},
+	}
+	store := oauth.NewMemoryTokenStore(initial)
+	initial.Scopes[0] = "mutated-after-init"
+
+	token, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	token.Scopes[0] = "mutated-after-load"
+
+	reloaded, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load() after mutation error = %v", err)
+	}
+	if got := reloaded.Scopes; len(got) != 1 || got[0] != "chat:read" {
+		t.Fatalf("stored scopes after Load mutation = %v, want %v", got, []string{"chat:read"})
+	}
+
+	saved := oauth.Token{
+		AccessToken: "updated-access",
+		Scopes:      []string{"chat:edit"},
+	}
+	if err := store.Save(context.Background(), saved); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	saved.Scopes[0] = "mutated-after-save"
+
+	reloaded, err = store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load() after Save mutation error = %v", err)
+	}
+	if got := reloaded.Scopes; len(got) != 1 || got[0] != "chat:edit" {
+		t.Fatalf("stored scopes after Save mutation = %v, want %v", got, []string{"chat:edit"})
+	}
+}
+
 func TestValidatingSourceValidatesAtMostHourly(t *testing.T) {
 	t.Parallel()
 

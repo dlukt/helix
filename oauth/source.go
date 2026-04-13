@@ -13,6 +13,32 @@ type TokenStore interface {
 	Save(context.Context, Token) error
 }
 
+// MemoryTokenStore keeps a token in memory for the lifetime of the process.
+type MemoryTokenStore struct {
+	mu    sync.RWMutex
+	token Token
+}
+
+// NewMemoryTokenStore creates an in-memory token store initialized with token.
+func NewMemoryTokenStore(token Token) *MemoryTokenStore {
+	return &MemoryTokenStore{token: cloneToken(token)}
+}
+
+// Load returns the current token value.
+func (s *MemoryTokenStore) Load(context.Context) (Token, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return cloneToken(s.token), nil
+}
+
+// Save replaces the current token value.
+func (s *MemoryTokenStore) Save(_ context.Context, token Token) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.token = cloneToken(token)
+	return nil
+}
+
 // ForceRefreshSource decorates a token source with an invalidation callback.
 type ForceRefreshSource struct {
 	next       TokenSource
@@ -233,4 +259,9 @@ func needsRefresh(token Token) bool {
 		return false
 	}
 	return !time.Now().Before(token.Expiry.Add(-30 * time.Second))
+}
+
+func cloneToken(token Token) Token {
+	token.Scopes = append([]string(nil), token.Scopes...)
+	return token
 }
