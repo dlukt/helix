@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // ChannelsService provides access to the channels API.
@@ -20,6 +21,20 @@ type GetChannelsParams struct {
 // GetChannelEditorsParams identifies the broadcaster whose editors to list.
 type GetChannelEditorsParams struct {
 	BroadcasterID string
+}
+
+// GetFollowedChannelsParams filters Get Followed Channels requests.
+type GetFollowedChannelsParams struct {
+	CursorParams
+	UserID        string
+	BroadcasterID string
+}
+
+// GetChannelFollowersParams filters Get Channel Followers requests.
+type GetChannelFollowersParams struct {
+	CursorParams
+	BroadcasterID string
+	UserID        string
 }
 
 // GetVIPsParams filters Get VIPs requests.
@@ -60,6 +75,36 @@ type ChannelEditor struct {
 // GetChannelEditorsResponse is the typed response for Get Channel Editors.
 type GetChannelEditorsResponse struct {
 	Data []ChannelEditor `json:"data"`
+}
+
+// FollowedChannel describes a broadcaster followed by a user.
+type FollowedChannel struct {
+	BroadcasterID    string    `json:"broadcaster_id"`
+	BroadcasterLogin string    `json:"broadcaster_login"`
+	BroadcasterName  string    `json:"broadcaster_name"`
+	FollowedAt       time.Time `json:"followed_at"`
+}
+
+// GetFollowedChannelsResponse is the typed response for Get Followed Channels.
+type GetFollowedChannelsResponse struct {
+	Data       []FollowedChannel `json:"data"`
+	Pagination Pagination        `json:"pagination"`
+	Total      int               `json:"total"`
+}
+
+// ChannelFollower describes a user following a broadcaster.
+type ChannelFollower struct {
+	FollowedAt time.Time `json:"followed_at"`
+	UserID     string    `json:"user_id"`
+	UserLogin  string    `json:"user_login"`
+	UserName   string    `json:"user_name"`
+}
+
+// GetChannelFollowersResponse is the typed response for Get Channel Followers.
+type GetChannelFollowersResponse struct {
+	Data       []ChannelFollower `json:"data"`
+	Pagination Pagination        `json:"pagination"`
+	Total      int               `json:"total"`
 }
 
 // VIP describes a VIP in a broadcaster's channel.
@@ -161,6 +206,48 @@ func (s *ChannelsService) GetEditors(ctx context.Context, params GetChannelEdito
 	meta, err := s.client.Do(ctx, RawRequest{
 		Method: http.MethodGet,
 		Path:   "/channels/editors",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetFollowedChannels fetches broadcasters followed by the specified user.
+func (s *ChannelsService) GetFollowedChannels(ctx context.Context, params GetFollowedChannelsParams) (*GetFollowedChannelsResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("user_id", params.UserID)
+	if params.BroadcasterID != "" {
+		query.Set("broadcaster_id", params.BroadcasterID)
+	}
+	addCursorParams(query, params.CursorParams)
+
+	var resp GetFollowedChannelsResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/channels/followed",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetFollowers fetches users following the specified broadcaster.
+func (s *ChannelsService) GetFollowers(ctx context.Context, params GetChannelFollowersParams) (*GetChannelFollowersResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+	if params.UserID != "" {
+		query.Set("user_id", params.UserID)
+	}
+	addCursorParams(query, params.CursorParams)
+
+	var resp GetChannelFollowersResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/channels/followers",
 		Query:  query,
 	}, &resp)
 	if err != nil {

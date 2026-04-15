@@ -248,6 +248,26 @@ func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T)
 			default:
 				t.Fatalf("unexpected method for /moderation/moderators: %s", r.Method)
 			}
+		case "/moderation/channels":
+			if got := r.Method; got != http.MethodGet {
+				t.Fatalf("method = %q, want GET", got)
+			}
+			if got := r.URL.Query().Get("user_id"); got != "456" {
+				t.Fatalf("user_id = %q, want 456", got)
+			}
+			if got := r.URL.Query().Get("first"); got != "10" {
+				t.Fatalf("first = %q, want 10", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"broadcaster_id":    "123",
+					"broadcaster_login": "caster",
+					"broadcaster_name":  "Caster",
+				}},
+				"pagination": map[string]any{
+					"cursor": "next-moderated-channels",
+				},
+			})
 		case "/moderation/banned":
 			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
 				t.Fatalf("broadcaster_id = %q, want 123", got)
@@ -331,6 +351,282 @@ func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T)
 				w.WriteHeader(http.StatusNoContent)
 			default:
 				t.Fatalf("unexpected method for /moderation/blocked_terms: %s", r.Method)
+			}
+		case "/moderation/enforcements/status":
+			if got := r.Method; got != http.MethodPost {
+				t.Fatalf("method = %q, want POST", got)
+			}
+			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+				t.Fatalf("broadcaster_id = %q, want 123", got)
+			}
+			var req helix.CheckAutoModStatusRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if len(req.Data) != 2 {
+				t.Fatalf("len(data) = %d, want 2", len(req.Data))
+			}
+			if got := req.Data[0].MsgID; got != "msg-1" {
+				t.Fatalf("data[0].msg_id = %q, want msg-1", got)
+			}
+			if got := req.Data[0].UserID; got != "456" {
+				t.Fatalf("data[0].user_id = %q, want 456", got)
+			}
+			if got := req.Data[1].MsgText; got != "You stink!" {
+				t.Fatalf("data[1].msg_text = %q, want You stink!", got)
+			}
+			if got := req.Data[1].UserID; got != "789" {
+				t.Fatalf("data[1].user_id = %q, want 789", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
+					{
+						"msg_id":       "msg-1",
+						"is_permitted": true,
+					},
+					{
+						"msg_id":       "msg-2",
+						"is_permitted": false,
+					},
+				},
+			})
+		case "/moderation/automod/message":
+			if got := r.Method; got != http.MethodPost {
+				t.Fatalf("method = %q, want POST", got)
+			}
+			var req helix.ManageHeldAutoModMessageRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := req.UserID; got != "456" {
+				t.Fatalf("user_id = %q, want 456", got)
+			}
+			if got := req.MsgID; got != "held-msg-1" {
+				t.Fatalf("msg_id = %q, want held-msg-1", got)
+			}
+			if got := req.Action; got != "ALLOW" {
+				t.Fatalf("action = %q, want ALLOW", got)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case "/moderation/automod/settings":
+			switch r.Method {
+			case http.MethodGet:
+				if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+					t.Fatalf("broadcaster_id = %q, want 123", got)
+				}
+				if got := r.URL.Query().Get("moderator_id"); got != "456" {
+					t.Fatalf("moderator_id = %q, want 456", got)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"broadcaster_id":             "123",
+						"moderator_id":               "456",
+						"overall_level":              nil,
+						"disability":                 1,
+						"aggression":                 2,
+						"sexuality_sex_or_gender":    1,
+						"misogyny":                   1,
+						"bullying":                   2,
+						"swearing":                   0,
+						"race_ethnicity_or_religion": 3,
+						"sex_based_terms":            1,
+					}},
+				})
+			case http.MethodPut:
+				if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+					t.Fatalf("broadcaster_id = %q, want 123", got)
+				}
+				if got := r.URL.Query().Get("moderator_id"); got != "456" {
+					t.Fatalf("moderator_id = %q, want 456", got)
+				}
+				var req helix.UpdateAutoModSettingsRequest
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Fatalf("Decode() error = %v", err)
+				}
+				if req.OverallLevel == nil || *req.OverallLevel != 3 {
+					t.Fatalf("overall_level = %#v, want 3", req.OverallLevel)
+				}
+				if req.Aggression != nil || req.Bullying != nil || req.Disability != nil ||
+					req.Misogyny != nil || req.RaceEthnicityOrReligion != nil ||
+					req.SexBasedTerms != nil || req.SexualitySexOrGender != nil ||
+					req.Swearing != nil {
+					t.Fatalf("category fields = %#v, want omitted", req)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"broadcaster_id":             "123",
+						"moderator_id":               "456",
+						"overall_level":              3,
+						"disability":                 3,
+						"aggression":                 3,
+						"sexuality_sex_or_gender":    3,
+						"misogyny":                   3,
+						"bullying":                   2,
+						"swearing":                   0,
+						"race_ethnicity_or_religion": 3,
+						"sex_based_terms":            3,
+					}},
+				})
+			default:
+				t.Fatalf("unexpected method for /moderation/automod/settings: %s", r.Method)
+			}
+		case "/moderation/warnings":
+			if got := r.Method; got != http.MethodPost {
+				t.Fatalf("method = %q, want POST", got)
+			}
+			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+				t.Fatalf("broadcaster_id = %q, want 123", got)
+			}
+			if got := r.URL.Query().Get("moderator_id"); got != "456" {
+				t.Fatalf("moderator_id = %q, want 456", got)
+			}
+			var req helix.WarnUserRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := req.Data.UserID; got != "9876" {
+				t.Fatalf("user_id = %q, want 9876", got)
+			}
+			if got := req.Data.Reason; got != "stop doing that!" {
+				t.Fatalf("reason = %q, want stop doing that!", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"broadcaster_id": "123",
+					"user_id":        "9876",
+					"moderator_id":   "456",
+					"reason":         "stop doing that!",
+				}},
+			})
+		case "/moderation/suspicious_users":
+			switch r.Method {
+			case http.MethodPost:
+				if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+					t.Fatalf("broadcaster_id = %q, want 123", got)
+				}
+				if got := r.URL.Query().Get("moderator_id"); got != "456" {
+					t.Fatalf("moderator_id = %q, want 456", got)
+				}
+				var req helix.SuspiciousUserStatusChangeRequest
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Fatalf("Decode() error = %v", err)
+				}
+				if got := req.UserID; got != "9876" {
+					t.Fatalf("user_id = %q, want 9876", got)
+				}
+				if got := req.Status; got != "RESTRICTED" {
+					t.Fatalf("status = %q, want RESTRICTED", got)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"user_id":        "9876",
+						"broadcaster_id": "123",
+						"moderator_id":   "456",
+						"updated_at":     "2025-12-01T23:08:18Z",
+						"status":         "RESTRICTED",
+						"types":          []string{"MANUALLY_ADDED"},
+					}},
+				})
+			case http.MethodDelete:
+				if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+					t.Fatalf("broadcaster_id = %q, want 123", got)
+				}
+				if got := r.URL.Query().Get("moderator_id"); got != "456" {
+					t.Fatalf("moderator_id = %q, want 456", got)
+				}
+				if got := r.URL.Query().Get("user_id"); got != "9876" {
+					t.Fatalf("user_id = %q, want 9876", got)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"user_id":        "9876",
+						"broadcaster_id": "123",
+						"moderator_id":   "456",
+						"updated_at":     "2025-12-01T23:09:00Z",
+						"status":         "NO_TREATMENT",
+						"types":          []string{"MANUALLY_ADDED"},
+					}},
+				})
+			default:
+				t.Fatalf("unexpected method for /moderation/suspicious_users: %s", r.Method)
+			}
+		case "/moderation/unban_requests":
+			switch r.Method {
+			case http.MethodGet:
+				if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+					t.Fatalf("broadcaster_id = %q, want 123", got)
+				}
+				if got := r.URL.Query().Get("moderator_id"); got != "456" {
+					t.Fatalf("moderator_id = %q, want 456", got)
+				}
+				if got := r.URL.Query().Get("status"); got != "pending" {
+					t.Fatalf("status = %q, want pending", got)
+				}
+				if got := r.URL.Query().Get("user_id"); got != "789" {
+					t.Fatalf("user_id = %q, want 789", got)
+				}
+				if got := r.URL.Query().Get("first"); got != "10" {
+					t.Fatalf("first = %q, want 10", got)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"id":                "unban-1",
+						"broadcaster_id":    "123",
+						"broadcaster_login": "caster",
+						"broadcaster_name":  "Caster",
+						"moderator_id":      "456",
+						"moderator_login":   "mod1",
+						"moderator_name":    "Mod1",
+						"user_id":           "789",
+						"user_login":        "viewer3",
+						"user_name":         "Viewer3",
+						"text":              "please unban me",
+						"status":            "pending",
+						"created_at":        "2024-04-15T01:30:28Z",
+						"resolved_at":       nil,
+						"resolution_text":   nil,
+					}},
+					"pagination": map[string]any{
+						"cursor": "next-unban-requests",
+					},
+				})
+			case http.MethodPatch:
+				if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+					t.Fatalf("broadcaster_id = %q, want 123", got)
+				}
+				if got := r.URL.Query().Get("moderator_id"); got != "456" {
+					t.Fatalf("moderator_id = %q, want 456", got)
+				}
+				if got := r.URL.Query().Get("unban_request_id"); got != "unban-1" {
+					t.Fatalf("unban_request_id = %q, want unban-1", got)
+				}
+				if got := r.URL.Query().Get("status"); got != "approved" {
+					t.Fatalf("status = %q, want approved", got)
+				}
+				if got := r.URL.Query().Get("resolution_text"); got != "welcome back" {
+					t.Fatalf("resolution_text = %q, want welcome back", got)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"id":                "unban-1",
+						"broadcaster_id":    "123",
+						"broadcaster_login": "caster",
+						"broadcaster_name":  "Caster",
+						"moderator_id":      "456",
+						"moderator_login":   "mod1",
+						"moderator_name":    "Mod1",
+						"user_id":           "789",
+						"user_login":        "viewer3",
+						"user_name":         "Viewer3",
+						"text":              "please unban me",
+						"status":            "approved",
+						"created_at":        "2024-04-15T01:30:28Z",
+						"resolved_at":       "2024-04-15T01:40:28Z",
+						"resolution_text":   "welcome back",
+					}},
+				})
+			default:
+				t.Fatalf("unexpected method for /moderation/unban_requests: %s", r.Method)
 			}
 		case "/moderation/shield_mode":
 			switch r.Method {
@@ -525,6 +821,20 @@ func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T)
 		t.Fatalf("Moderators cursor = %q, want next-moderators", got)
 	}
 
+	moderatedChannelsResp, moderatedChannelsMeta, err := client.Moderation.GetModeratedChannels(context.Background(), helix.GetModeratedChannelsParams{
+		CursorParams: helix.CursorParams{First: 10},
+		UserID:       "456",
+	})
+	if err != nil {
+		t.Fatalf("Moderation.GetModeratedChannels() error = %v", err)
+	}
+	if got := moderatedChannelsResp.Data[0].BroadcasterLogin; got != "caster" {
+		t.Fatalf("BroadcasterLogin = %q, want caster", got)
+	}
+	if got := moderatedChannelsMeta.Pagination.Cursor; got != "next-moderated-channels" {
+		t.Fatalf("Moderated channels cursor = %q, want next-moderated-channels", got)
+	}
+
 	addModeratorMeta, err := client.Moderation.AddModerator(context.Background(), helix.AddModeratorParams{
 		BroadcasterID: "123",
 		UserID:        "789",
@@ -621,6 +931,154 @@ func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T)
 		t.Fatalf("Blocked terms cursor = %q, want next-blocked-terms", got)
 	}
 
+	autoModStatusResp, _, err := client.Moderation.CheckAutoModStatus(context.Background(), helix.CheckAutoModStatusParams{
+		BroadcasterID: "123",
+	}, helix.CheckAutoModStatusRequest{
+		Data: []helix.AutoModCheckMessage{
+			{MsgID: "msg-1", UserID: "456", MsgText: "Hello world!"},
+			{MsgID: "msg-2", UserID: "789", MsgText: "You stink!"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Moderation.CheckAutoModStatus() error = %v", err)
+	}
+	if got := autoModStatusResp.Data[0].IsPermitted; !got {
+		t.Fatal("AutoMod check for msg-1 = false, want true")
+	}
+	if got := autoModStatusResp.Data[1].IsPermitted; got {
+		t.Fatal("AutoMod check for msg-2 = true, want false")
+	}
+
+	manageHeldMeta, err := client.Moderation.ManageHeldAutoModMessage(context.Background(), helix.ManageHeldAutoModMessageRequest{
+		UserID: "456",
+		MsgID:  "held-msg-1",
+		Action: "ALLOW",
+	})
+	if err != nil {
+		t.Fatalf("Moderation.ManageHeldAutoModMessage() error = %v", err)
+	}
+	if got := manageHeldMeta.StatusCode; got != http.StatusNoContent {
+		t.Fatalf("ManageHeldAutoModMessage status = %d, want %d", got, http.StatusNoContent)
+	}
+
+	autoModSettingsResp, _, err := client.Moderation.GetAutoModSettings(context.Background(), helix.AutoModSettingsParams{
+		BroadcasterID: "123",
+		ModeratorID:   "456",
+	})
+	if err != nil {
+		t.Fatalf("Moderation.GetAutoModSettings() error = %v", err)
+	}
+	if autoModSettingsResp.Data[0].OverallLevel != nil {
+		t.Fatalf("AutoMod OverallLevel = %v, want nil", *autoModSettingsResp.Data[0].OverallLevel)
+	}
+	if got := autoModSettingsResp.Data[0].RaceEthnicityOrReligion; got != 3 {
+		t.Fatalf("AutoMod RaceEthnicityOrReligion = %d, want 3", got)
+	}
+
+	updatedAutoModSettingsResp, _, err := client.Moderation.UpdateAutoModSettings(context.Background(), helix.AutoModSettingsParams{
+		BroadcasterID: "123",
+		ModeratorID:   "456",
+	}, helix.UpdateAutoModSettingsRequest{
+		OverallLevel: intPtr(3),
+	})
+	if err != nil {
+		t.Fatalf("Moderation.UpdateAutoModSettings() error = %v", err)
+	}
+	if updatedAutoModSettingsResp.Data[0].OverallLevel == nil || *updatedAutoModSettingsResp.Data[0].OverallLevel != 3 {
+		t.Fatalf("Updated AutoMod OverallLevel = %#v, want 3", updatedAutoModSettingsResp.Data[0].OverallLevel)
+	}
+	if got := updatedAutoModSettingsResp.Data[0].Bullying; got != 2 {
+		t.Fatalf("Updated AutoMod Bullying = %d, want 2", got)
+	}
+
+	warningResp, _, err := client.Moderation.WarnUser(context.Background(), helix.WarnUserParams{
+		BroadcasterID: "123",
+		ModeratorID:   "456",
+	}, helix.WarnUserRequest{
+		Data: helix.WarningPayload{
+			UserID: "9876",
+			Reason: "stop doing that!",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Moderation.WarnUser() error = %v", err)
+	}
+	if got := warningResp.Data[0].Reason; got != "stop doing that!" {
+		t.Fatalf("Warning reason = %q, want stop doing that!", got)
+	}
+
+	addSuspiciousResp, _, err := client.Moderation.AddSuspiciousUserStatus(context.Background(), helix.ShieldModeParams{
+		BroadcasterID: "123",
+		ModeratorID:   "456",
+	}, helix.SuspiciousUserStatusChangeRequest{
+		UserID: "9876",
+		Status: "RESTRICTED",
+	})
+	if err != nil {
+		t.Fatalf("Moderation.AddSuspiciousUserStatus() error = %v", err)
+	}
+	if got := addSuspiciousResp.Data[0].Status; got != "RESTRICTED" {
+		t.Fatalf("Suspicious status = %q, want RESTRICTED", got)
+	}
+	if got := addSuspiciousResp.Data[0].Types[0]; got != "MANUALLY_ADDED" {
+		t.Fatalf("Suspicious types[0] = %q, want MANUALLY_ADDED", got)
+	}
+
+	removeSuspiciousResp, _, err := client.Moderation.RemoveSuspiciousUserStatus(context.Background(), helix.RemoveSuspiciousUserParams{
+		BroadcasterID: "123",
+		ModeratorID:   "456",
+		UserID:        "9876",
+	})
+	if err != nil {
+		t.Fatalf("Moderation.RemoveSuspiciousUserStatus() error = %v", err)
+	}
+	if got := removeSuspiciousResp.Data[0].Status; got != "NO_TREATMENT" {
+		t.Fatalf("Removed suspicious status = %q, want NO_TREATMENT", got)
+	}
+
+	unbanRequestsResp, unbanRequestsMeta, err := client.Moderation.GetUnbanRequests(context.Background(), helix.GetUnbanRequestsParams{
+		CursorParams:  helix.CursorParams{First: 10},
+		BroadcasterID: "123",
+		ModeratorID:   "456",
+		Status:        "pending",
+		UserID:        "789",
+	})
+	if err != nil {
+		t.Fatalf("Moderation.GetUnbanRequests() error = %v", err)
+	}
+	if got := unbanRequestsResp.Data[0].Text; got != "please unban me" {
+		t.Fatalf("UnbanRequest.Text = %q, want please unban me", got)
+	}
+	if unbanRequestsResp.Data[0].ResolvedAt != nil {
+		t.Fatalf("UnbanRequest.ResolvedAt = %v, want nil", unbanRequestsResp.Data[0].ResolvedAt)
+	}
+	if unbanRequestsResp.Data[0].ResolutionText != nil {
+		t.Fatalf("UnbanRequest.ResolutionText = %v, want nil", *unbanRequestsResp.Data[0].ResolutionText)
+	}
+	if got := unbanRequestsMeta.Pagination.Cursor; got != "next-unban-requests" {
+		t.Fatalf("Unban requests cursor = %q, want next-unban-requests", got)
+	}
+
+	resolvedUnbanResp, _, err := client.Moderation.ResolveUnbanRequest(context.Background(), helix.ResolveUnbanRequestParams{
+		BroadcasterID:  "123",
+		ModeratorID:    "456",
+		UnbanRequestID: "unban-1",
+		Status:         "approved",
+		ResolutionText: "welcome back",
+	})
+	if err != nil {
+		t.Fatalf("Moderation.ResolveUnbanRequest() error = %v", err)
+	}
+	if got := resolvedUnbanResp.Data[0].Status; got != "approved" {
+		t.Fatalf("Resolved unban status = %q, want approved", got)
+	}
+	if resolvedUnbanResp.Data[0].ResolvedAt == nil {
+		t.Fatal("Resolved unban ResolvedAt = nil, want timestamp")
+	}
+	if resolvedUnbanResp.Data[0].ResolutionText == nil || *resolvedUnbanResp.Data[0].ResolutionText != "welcome back" {
+		t.Fatalf("Resolved unban ResolutionText = %#v, want welcome back", resolvedUnbanResp.Data[0].ResolutionText)
+	}
+
 	addBlockedTermResp, _, err := client.Moderation.AddBlockedTerm(context.Background(), helix.ShieldModeParams{
 		BroadcasterID: "123",
 		ModeratorID:   "456",
@@ -674,6 +1132,112 @@ func TestChatAndModerationServicesEncodeRequestsAndDecodeResponses(t *testing.T)
 	}
 	if updatedShieldResp.Data[0].LastActivatedAt == nil {
 		t.Fatal("Updated ShieldModeStatus.LastActivatedAt = nil, want timestamp")
+	}
+}
+
+func TestModerationUpdateAutoModSettingsMergesCategoriesWithoutOverallLevel(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		if r.URL.Path != "/moderation/automod/settings" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"broadcaster_id":             "123",
+					"moderator_id":               "456",
+					"overall_level":              4,
+					"disability":                 1,
+					"aggression":                 2,
+					"sexuality_sex_or_gender":    3,
+					"misogyny":                   4,
+					"bullying":                   1,
+					"swearing":                   2,
+					"race_ethnicity_or_religion": 3,
+					"sex_based_terms":            4,
+				}},
+			})
+		case http.MethodPut:
+			var req helix.UpdateAutoModSettingsRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if req.OverallLevel != nil {
+				t.Fatalf("overall_level = %#v, want omitted", req.OverallLevel)
+			}
+			if req.Bullying == nil || *req.Bullying != 4 {
+				t.Fatalf("bullying = %#v, want 4", req.Bullying)
+			}
+			if req.Aggression == nil || *req.Aggression != 2 {
+				t.Fatalf("aggression = %#v, want 2", req.Aggression)
+			}
+			if req.Disability == nil || *req.Disability != 1 {
+				t.Fatalf("disability = %#v, want 1", req.Disability)
+			}
+			if req.SexualitySexOrGender == nil || *req.SexualitySexOrGender != 3 {
+				t.Fatalf("sexuality_sex_or_gender = %#v, want 3", req.SexualitySexOrGender)
+			}
+			if req.Misogyny == nil || *req.Misogyny != 4 {
+				t.Fatalf("misogyny = %#v, want 4", req.Misogyny)
+			}
+			if req.Swearing == nil || *req.Swearing != 2 {
+				t.Fatalf("swearing = %#v, want 2", req.Swearing)
+			}
+			if req.RaceEthnicityOrReligion == nil || *req.RaceEthnicityOrReligion != 3 {
+				t.Fatalf("race_ethnicity_or_religion = %#v, want 3", req.RaceEthnicityOrReligion)
+			}
+			if req.SexBasedTerms == nil || *req.SexBasedTerms != 4 {
+				t.Fatalf("sex_based_terms = %#v, want 4", req.SexBasedTerms)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"broadcaster_id":             "123",
+					"moderator_id":               "456",
+					"overall_level":              nil,
+					"disability":                 1,
+					"aggression":                 2,
+					"sexuality_sex_or_gender":    3,
+					"misogyny":                   4,
+					"bullying":                   4,
+					"swearing":                   2,
+					"race_ethnicity_or_religion": 3,
+					"sex_based_terms":            4,
+				}},
+			})
+		default:
+			t.Fatalf("unexpected method %s", r.Method)
+		}
+	}))
+	defer server.Close()
+
+	client, err := helix.New(helix.Config{
+		ClientID: "client-id",
+		BaseURL:  server.URL,
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	resp, _, err := client.Moderation.UpdateAutoModSettings(context.Background(), helix.AutoModSettingsParams{
+		BroadcasterID: "123",
+		ModeratorID:   "456",
+	}, helix.UpdateAutoModSettingsRequest{
+		Bullying: intPtr(4),
+	})
+	if err != nil {
+		t.Fatalf("Moderation.UpdateAutoModSettings() error = %v", err)
+	}
+	if got := resp.Data[0].Bullying; got != 4 {
+		t.Fatalf("Updated AutoMod Bullying = %d, want 4", got)
+	}
+	if resp.Data[0].OverallLevel != nil {
+		t.Fatalf("Updated AutoMod OverallLevel = %#v, want nil", resp.Data[0].OverallLevel)
 	}
 }
 

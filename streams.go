@@ -22,6 +22,17 @@ type GetStreamsParams struct {
 	Type       string
 }
 
+// GetFollowedStreamsParams filters Get Followed Streams requests.
+type GetFollowedStreamsParams struct {
+	CursorParams
+	UserID string
+}
+
+// GetStreamKeyParams identifies the broadcaster whose stream key to fetch.
+type GetStreamKeyParams struct {
+	BroadcasterID string
+}
+
 // Stream describes a Twitch stream.
 type Stream struct {
 	ID           string    `json:"id"`
@@ -42,6 +53,16 @@ type Stream struct {
 // GetStreamsResponse is the typed response for Get Streams.
 type GetStreamsResponse struct {
 	Data []Stream
+}
+
+// StreamKey contains a broadcaster's stream key.
+type StreamKey struct {
+	StreamKey string `json:"stream_key"`
+}
+
+// GetStreamKeyResponse is the typed response for Get Stream Key.
+type GetStreamKeyResponse struct {
+	Data []StreamKey
 }
 
 // Get fetches live streams.
@@ -66,4 +87,39 @@ func (s *StreamsService) Get(ctx context.Context, params GetStreamsParams) (*Get
 		return nil, meta, err
 	}
 	return &GetStreamsResponse{Data: data}, meta, nil
+}
+
+// GetFollowed fetches live streams for broadcasters that the specified user follows.
+func (s *StreamsService) GetFollowed(ctx context.Context, params GetFollowedStreamsParams) (*GetStreamsResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("user_id", params.UserID)
+	addCursorParams(query, params.CursorParams)
+
+	var data []Stream
+	meta, err := s.client.doData(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/streams/followed",
+		Query:  query,
+	}, &data)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &GetStreamsResponse{Data: data}, meta, nil
+}
+
+// GetKey fetches the broadcaster's stream key.
+func (s *StreamsService) GetKey(ctx context.Context, params GetStreamKeyParams) (*GetStreamKeyResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+
+	var resp GetStreamKeyResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/streams/key",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
 }

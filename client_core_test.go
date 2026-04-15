@@ -119,6 +119,46 @@ func TestCreatorCoreServicesEncodeRequestsAndDecodeResponses(t *testing.T) {
 					"created_at": "2024-04-11T12:00:00Z",
 				}},
 			})
+		case "/channels/followed":
+			if got := r.URL.Query().Get("user_id"); got != "123" {
+				t.Fatalf("followed user_id = %q, want 123", got)
+			}
+			if got := r.URL.Query().Get("broadcaster_id"); got != "456" {
+				t.Fatalf("followed broadcaster_id = %q, want 456", got)
+			}
+			if got := r.URL.Query().Get("first"); got != "5" {
+				t.Fatalf("followed first = %q, want 5", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"total": 8,
+				"data": []map[string]any{{
+					"broadcaster_id":    "456",
+					"broadcaster_login": "othercaster",
+					"broadcaster_name":  "OtherCaster",
+					"followed_at":       "2024-04-10T12:00:00Z",
+				}},
+				"pagination": map[string]any{"cursor": "next-followed-channels"},
+			})
+		case "/channels/followers":
+			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+				t.Fatalf("followers broadcaster_id = %q, want 123", got)
+			}
+			if got := r.URL.Query().Get("user_id"); got != "789" {
+				t.Fatalf("followers user_id = %q, want 789", got)
+			}
+			if got := r.URL.Query().Get("first"); got != "5" {
+				t.Fatalf("followers first = %q, want 5", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"total": 42,
+				"data": []map[string]any{{
+					"followed_at": "2024-04-09T12:00:00Z",
+					"user_id":     "789",
+					"user_login":  "viewerthree",
+					"user_name":   "ViewerThree",
+				}},
+				"pagination": map[string]any{"cursor": "next-channel-followers"},
+			})
 		case "/channels/vips":
 			switch r.Method {
 			case http.MethodGet:
@@ -330,6 +370,42 @@ func TestCreatorCoreServicesEncodeRequestsAndDecodeResponses(t *testing.T) {
 	}
 	if got := editorsResp.Data[0].UserLogin; got != "editorone" {
 		t.Fatalf("Editor UserLogin = %q, want editorone", got)
+	}
+
+	followedChannelsResp, followedChannelsMeta, err := client.Channels.GetFollowedChannels(context.Background(), helix.GetFollowedChannelsParams{
+		CursorParams:  helix.CursorParams{First: 5},
+		UserID:        "123",
+		BroadcasterID: "456",
+	})
+	if err != nil {
+		t.Fatalf("Channels.GetFollowedChannels() error = %v", err)
+	}
+	if got := followedChannelsResp.Total; got != 8 {
+		t.Fatalf("Followed channels total = %d, want 8", got)
+	}
+	if got := followedChannelsResp.Data[0].BroadcasterLogin; got != "othercaster" {
+		t.Fatalf("Followed broadcaster login = %q, want othercaster", got)
+	}
+	if got := followedChannelsMeta.Pagination.Cursor; got != "next-followed-channels" {
+		t.Fatalf("Followed channels cursor = %q, want next-followed-channels", got)
+	}
+
+	followersResp, followersMeta, err := client.Channels.GetFollowers(context.Background(), helix.GetChannelFollowersParams{
+		CursorParams:  helix.CursorParams{First: 5},
+		BroadcasterID: "123",
+		UserID:        "789",
+	})
+	if err != nil {
+		t.Fatalf("Channels.GetFollowers() error = %v", err)
+	}
+	if got := followersResp.Total; got != 42 {
+		t.Fatalf("Followers total = %d, want 42", got)
+	}
+	if got := followersResp.Data[0].UserLogin; got != "viewerthree" {
+		t.Fatalf("Follower UserLogin = %q, want viewerthree", got)
+	}
+	if got := followersMeta.Pagination.Cursor; got != "next-channel-followers" {
+		t.Fatalf("Followers cursor = %q, want next-channel-followers", got)
 	}
 
 	vipsResp, vipsMeta, err := client.Channels.GetVIPs(context.Background(), helix.GetVIPsParams{
