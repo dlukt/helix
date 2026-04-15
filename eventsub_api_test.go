@@ -152,6 +152,239 @@ func TestEventSubServiceCreateListAndDeleteSubscriptions(t *testing.T) {
 	}
 }
 
+func TestEventSubServiceManageConduitsAndShards(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/eventsub/conduits":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
+					{
+						"id":          "conduit-1",
+						"shard_count": 2,
+					},
+				},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/eventsub/conduits":
+			var req helix.CreateConduitRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := req.ShardCount; got != 5 {
+				t.Fatalf("ShardCount = %d, want 5", got)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
+					{
+						"id":          "conduit-2",
+						"shard_count": 5,
+					},
+				},
+			})
+		case r.Method == http.MethodPatch && r.URL.Path == "/eventsub/conduits":
+			var req helix.UpdateConduitRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := req.ID; got != "conduit-2" {
+				t.Fatalf("ID = %q, want conduit-2", got)
+			}
+			if got := req.ShardCount; got != 3 {
+				t.Fatalf("ShardCount = %d, want 3", got)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
+					{
+						"id":          "conduit-2",
+						"shard_count": 3,
+					},
+				},
+			})
+		case r.Method == http.MethodDelete && r.URL.Path == "/eventsub/conduits":
+			if got := r.URL.Query().Get("id"); got != "conduit-2" {
+				t.Fatalf("id = %q, want conduit-2", got)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodGet && r.URL.Path == "/eventsub/conduits/shards":
+			if got := r.URL.Query().Get("conduit_id"); got != "conduit-2" {
+				t.Fatalf("conduit_id = %q, want conduit-2", got)
+			}
+			if got := r.URL.Query().Get("status"); got != "enabled" {
+				t.Fatalf("status = %q, want enabled", got)
+			}
+			if got := r.URL.Query().Get("after"); got != "cursor-1" {
+				t.Fatalf("after = %q, want cursor-1", got)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
+					{
+						"id":     "0",
+						"status": "enabled",
+						"transport": map[string]any{
+							"method":   "webhook",
+							"callback": "https://example.com/a",
+						},
+					},
+					{
+						"id":     "1",
+						"status": "websocket_disconnected",
+						"transport": map[string]any{
+							"method":          "websocket",
+							"session_id":      "session-1",
+							"connected_at":    "2024-04-15T10:00:00Z",
+							"disconnected_at": "2024-04-15T10:05:00Z",
+						},
+					},
+				},
+				"pagination": map[string]any{
+					"cursor": "next-shards",
+				},
+			})
+		case r.Method == http.MethodPatch && r.URL.Path == "/eventsub/conduits/shards":
+			var req helix.UpdateConduitShardsRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := req.ConduitID; got != "conduit-2" {
+				t.Fatalf("ConduitID = %q, want conduit-2", got)
+			}
+			if got := len(req.Shards); got != 2 {
+				t.Fatalf("len(Shards) = %d, want 2", got)
+			}
+			if got := req.Shards[0].Transport.Callback; got != "https://example.com/a" {
+				t.Fatalf("Shard[0] callback = %q, want https://example.com/a", got)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
+					{
+						"id":     "0",
+						"status": "enabled",
+						"transport": map[string]any{
+							"method":   "webhook",
+							"callback": "https://example.com/a",
+						},
+					},
+				},
+				"errors": []map[string]any{
+					{
+						"id":      "1",
+						"message": "The websocket session is not connected.",
+						"code":    "ERR_WEBSOCKET_DISCONNECTED",
+					},
+				},
+			})
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	client, err := helix.New(helix.Config{
+		ClientID: "client-id",
+		BaseURL:  server.URL,
+		TokenSource: oauth.StaticSource{
+			Value: oauth.Token{AccessToken: "access-token"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	conduits, _, err := client.EventSub.GetConduits(context.Background())
+	if err != nil {
+		t.Fatalf("GetConduits() error = %v", err)
+	}
+	if got := conduits.Data[0].ShardCount; got != 2 {
+		t.Fatalf("conduits.Data[0].ShardCount = %d, want 2", got)
+	}
+
+	created, _, err := client.EventSub.CreateConduit(context.Background(), helix.CreateConduitRequest{
+		ShardCount: 5,
+	})
+	if err != nil {
+		t.Fatalf("CreateConduit() error = %v", err)
+	}
+	if got := created.Data[0].ID; got != "conduit-2" {
+		t.Fatalf("created.Data[0].ID = %q, want conduit-2", got)
+	}
+
+	updated, _, err := client.EventSub.UpdateConduit(context.Background(), helix.UpdateConduitRequest{
+		ID:         "conduit-2",
+		ShardCount: 3,
+	})
+	if err != nil {
+		t.Fatalf("UpdateConduit() error = %v", err)
+	}
+	if got := updated.Data[0].ShardCount; got != 3 {
+		t.Fatalf("updated.Data[0].ShardCount = %d, want 3", got)
+	}
+
+	shards, shardsMeta, err := client.EventSub.GetConduitShards(context.Background(), helix.GetConduitShardsParams{
+		ConduitID: "conduit-2",
+		Status:    "enabled",
+		After:     "cursor-1",
+	})
+	if err != nil {
+		t.Fatalf("GetConduitShards() error = %v", err)
+	}
+	if got := shards.Data[1].Transport.SessionID; got != "session-1" {
+		t.Fatalf("shards.Data[1].Transport.SessionID = %q, want session-1", got)
+	}
+	if got := shardsMeta.Pagination.Cursor; got != "next-shards" {
+		t.Fatalf("shardsMeta.Pagination.Cursor = %q, want next-shards", got)
+	}
+
+	shardsUpdated, shardsUpdateMeta, err := client.EventSub.UpdateConduitShards(context.Background(), helix.UpdateConduitShardsRequest{
+		ConduitID: "conduit-2",
+		Shards: []helix.UpdateConduitShardRequest{
+			{
+				ID: "0",
+				Transport: helix.EventSubTransport{
+					Method:   "webhook",
+					Callback: "https://example.com/a",
+					Secret:   "supersecret",
+				},
+			},
+			{
+				ID: "1",
+				Transport: helix.EventSubTransport{
+					Method:    "websocket",
+					SessionID: "session-1",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpdateConduitShards() error = %v", err)
+	}
+	if got := shardsUpdateMeta.StatusCode; got != http.StatusAccepted {
+		t.Fatalf("shardsUpdateMeta.StatusCode = %d, want %d", got, http.StatusAccepted)
+	}
+	if got := len(shardsUpdated.Errors); got != 1 {
+		t.Fatalf("len(shardsUpdated.Errors) = %d, want 1", got)
+	}
+	if got := shardsUpdated.Errors[0].Code; got != "ERR_WEBSOCKET_DISCONNECTED" {
+		t.Fatalf("shardsUpdated.Errors[0].Code = %q, want ERR_WEBSOCKET_DISCONNECTED", got)
+	}
+
+	deleteMeta, err := client.EventSub.DeleteConduit(context.Background(), "conduit-2")
+	if err != nil {
+		t.Fatalf("DeleteConduit() error = %v", err)
+	}
+	if got := deleteMeta.StatusCode; got != http.StatusNoContent {
+		t.Fatalf("deleteMeta.StatusCode = %d, want %d", got, http.StatusNoContent)
+	}
+}
+
 func TestEventSubServiceCreateTypedSubscriptions(t *testing.T) {
 	t.Parallel()
 

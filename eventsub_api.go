@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/url"
+	"time"
 )
 
 // EventSubService provides access to EventSub subscription APIs.
@@ -631,12 +632,187 @@ type ListEventSubSubscriptionsResponse struct {
 	Pagination   Pagination             `json:"pagination"`
 }
 
+// Conduit describes an EventSub conduit.
+type Conduit struct {
+	ID         string `json:"id"`
+	ShardCount int    `json:"shard_count"`
+}
+
+// GetConduitsResponse is returned by GetConduits.
+type GetConduitsResponse struct {
+	Data []Conduit `json:"data"`
+}
+
+// CreateConduitRequest creates a new conduit.
+type CreateConduitRequest struct {
+	ShardCount int `json:"shard_count"`
+}
+
+// CreateConduitsResponse is returned by CreateConduit.
+type CreateConduitsResponse struct {
+	Data []Conduit `json:"data"`
+}
+
+// UpdateConduitRequest updates an existing conduit's shard count.
+type UpdateConduitRequest struct {
+	ID         string `json:"id"`
+	ShardCount int    `json:"shard_count"`
+}
+
+// UpdateConduitsResponse is returned by UpdateConduit.
+type UpdateConduitsResponse struct {
+	Data []Conduit `json:"data"`
+}
+
+// GetConduitShardsParams filters GetConduitShards requests.
+type GetConduitShardsParams struct {
+	ConduitID string
+	Status    string
+	After     string
+}
+
+// ConduitShardTransport describes the delivery transport used by a conduit shard.
+type ConduitShardTransport struct {
+	Method         string     `json:"method"`
+	Callback       string     `json:"callback,omitempty"`
+	SessionID      string     `json:"session_id,omitempty"`
+	ConnectedAt    *time.Time `json:"connected_at,omitempty"`
+	DisconnectedAt *time.Time `json:"disconnected_at,omitempty"`
+}
+
+// ConduitShard describes one shard on a conduit.
+type ConduitShard struct {
+	ID        string                `json:"id"`
+	Status    string                `json:"status"`
+	Transport ConduitShardTransport `json:"transport"`
+}
+
+// GetConduitShardsResponse is returned by GetConduitShards.
+type GetConduitShardsResponse struct {
+	Data       []ConduitShard `json:"data"`
+	Pagination Pagination     `json:"pagination"`
+}
+
+// UpdateConduitShardRequest identifies a shard and the transport settings to apply.
+type UpdateConduitShardRequest struct {
+	ID        string            `json:"id"`
+	Transport EventSubTransport `json:"transport"`
+}
+
+// UpdateConduitShardsRequest updates one or more conduit shards.
+type UpdateConduitShardsRequest struct {
+	ConduitID string                      `json:"conduit_id"`
+	Shards    []UpdateConduitShardRequest `json:"shards"`
+}
+
+// ConduitShardUpdateError describes an unsuccessful shard update.
+type ConduitShardUpdateError struct {
+	ID      string `json:"id"`
+	Message string `json:"message"`
+	Code    string `json:"code"`
+}
+
+// UpdateConduitShardsResponse is returned by UpdateConduitShards.
+type UpdateConduitShardsResponse struct {
+	Data   []ConduitShard            `json:"data"`
+	Errors []ConduitShardUpdateError `json:"errors"`
+}
+
 // Create creates a new EventSub subscription.
 func (s *EventSubService) Create(ctx context.Context, req CreateEventSubSubscriptionRequest) (*CreateEventSubSubscriptionResponse, *Response, error) {
 	var resp CreateEventSubSubscriptionResponse
 	meta, err := s.client.Do(ctx, RawRequest{
 		Method: "POST",
 		Path:   "/eventsub/subscriptions",
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetConduits lists conduits for the current client ID.
+func (s *EventSubService) GetConduits(ctx context.Context) (*GetConduitsResponse, *Response, error) {
+	var resp GetConduitsResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: "GET",
+		Path:   "/eventsub/conduits",
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// CreateConduit creates a new conduit.
+func (s *EventSubService) CreateConduit(ctx context.Context, req CreateConduitRequest) (*CreateConduitsResponse, *Response, error) {
+	var resp CreateConduitsResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: "POST",
+		Path:   "/eventsub/conduits",
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// UpdateConduit updates a conduit shard count.
+func (s *EventSubService) UpdateConduit(ctx context.Context, req UpdateConduitRequest) (*UpdateConduitsResponse, *Response, error) {
+	var resp UpdateConduitsResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: "PATCH",
+		Path:   "/eventsub/conduits",
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// DeleteConduit deletes a conduit by ID.
+func (s *EventSubService) DeleteConduit(ctx context.Context, id string) (*Response, error) {
+	query := url.Values{}
+	query.Set("id", id)
+	return s.client.Do(ctx, RawRequest{
+		Method: "DELETE",
+		Path:   "/eventsub/conduits",
+		Query:  query,
+	}, nil)
+}
+
+// GetConduitShards lists shards for a conduit.
+func (s *EventSubService) GetConduitShards(ctx context.Context, params GetConduitShardsParams) (*GetConduitShardsResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("conduit_id", params.ConduitID)
+	if params.Status != "" {
+		query.Set("status", params.Status)
+	}
+	if params.After != "" {
+		query.Set("after", params.After)
+	}
+
+	var resp GetConduitShardsResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: "GET",
+		Path:   "/eventsub/conduits/shards",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// UpdateConduitShards updates one or more shards on a conduit.
+func (s *EventSubService) UpdateConduitShards(ctx context.Context, req UpdateConduitShardsRequest) (*UpdateConduitShardsResponse, *Response, error) {
+	var resp UpdateConduitShardsResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: "PATCH",
+		Path:   "/eventsub/conduits/shards",
 		Body:   req,
 	}, &resp)
 	if err != nil {

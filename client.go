@@ -41,27 +41,34 @@ type Client struct {
 	baseURL     string
 	userAgent   string
 
-	Users         *UsersService
-	Channels      *ChannelsService
-	Streams       *StreamsService
-	Chat          *ChatService
-	Moderation    *ModerationService
-	Raids         *RaidsService
-	Schedule      *ScheduleService
-	Markers       *MarkersService
-	Games         *GamesService
-	Search        *SearchService
-	Analytics     *AnalyticsService
-	Bits          *BitsService
-	HypeTrain     *HypeTrainService
-	Polls         *PollsService
-	Predictions   *PredictionsService
-	Goals         *GoalsService
-	Charity       *CharityService
-	Subscriptions *SubscriptionsService
-	Clips         *ClipsService
-	Videos        *VideosService
-	EventSub      *EventSubService
+	Users                       *UsersService
+	Channels                    *ChannelsService
+	Streams                     *StreamsService
+	Chat                        *ChatService
+	Moderation                  *ModerationService
+	Raids                       *RaidsService
+	Schedule                    *ScheduleService
+	Markers                     *MarkersService
+	Games                       *GamesService
+	Search                      *SearchService
+	Analytics                   *AnalyticsService
+	Bits                        *BitsService
+	HypeTrain                   *HypeTrainService
+	Entitlements                *EntitlementsService
+	Whispers                    *WhispersService
+	Teams                       *TeamsService
+	ContentClassificationLabels *ContentClassificationLabelsService
+	Extensions                  *ExtensionsService
+	ChannelPoints               *ChannelPointsService
+	GuestStar                   *GuestStarService
+	Polls                       *PollsService
+	Predictions                 *PredictionsService
+	Goals                       *GoalsService
+	Charity                     *CharityService
+	Subscriptions               *SubscriptionsService
+	Clips                       *ClipsService
+	Videos                      *VideosService
+	EventSub                    *EventSubService
 }
 
 // New creates a new Helix client.
@@ -100,6 +107,13 @@ func New(cfg Config) (*Client, error) {
 	c.Analytics = &AnalyticsService{client: c}
 	c.Bits = &BitsService{client: c}
 	c.HypeTrain = &HypeTrainService{client: c}
+	c.Entitlements = &EntitlementsService{client: c}
+	c.Whispers = &WhispersService{client: c}
+	c.Teams = &TeamsService{client: c}
+	c.ContentClassificationLabels = &ContentClassificationLabelsService{client: c}
+	c.Extensions = &ExtensionsService{client: c}
+	c.ChannelPoints = &ChannelPointsService{client: c}
+	c.GuestStar = &GuestStarService{client: c}
 	c.Polls = &PollsService{client: c}
 	c.Predictions = &PredictionsService{client: c}
 	c.Goals = &GoalsService{client: c}
