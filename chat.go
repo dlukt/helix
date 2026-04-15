@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // ChatService provides access to Twitch chat APIs.
@@ -15,6 +16,33 @@ type ChatService struct {
 type GetChatSettingsParams struct {
 	BroadcasterID string
 	ModeratorID   string
+}
+
+// GetChannelEmotesParams identifies the broadcaster whose custom emotes to fetch.
+type GetChannelEmotesParams struct {
+	BroadcasterID string
+}
+
+// GetEmoteSetsParams identifies one or more emote sets to fetch.
+type GetEmoteSetsParams struct {
+	EmoteSetIDs []string
+}
+
+// GetUserEmotesParams filters Get User Emotes requests.
+type GetUserEmotesParams struct {
+	CursorParams
+	UserID        string
+	BroadcasterID string
+}
+
+// GetChannelBadgesParams identifies the broadcaster whose custom chat badges to fetch.
+type GetChannelBadgesParams struct {
+	BroadcasterID string
+}
+
+// GetSharedChatSessionParams identifies the broadcaster whose shared chat session to fetch.
+type GetSharedChatSessionParams struct {
+	BroadcasterID string
 }
 
 // ChatSettings describes a broadcaster's chat room settings.
@@ -35,6 +63,34 @@ type ChatSettings struct {
 // GetChatSettingsResponse is the typed response for Get Chat Settings.
 type GetChatSettingsResponse struct {
 	Data []ChatSettings `json:"data"`
+}
+
+// EmoteImageSet contains static preview URLs for an emote.
+type EmoteImageSet struct {
+	URL1x string `json:"url_1x"`
+	URL2x string `json:"url_2x"`
+	URL4x string `json:"url_4x"`
+}
+
+// Emote describes a Twitch emote returned by Helix chat APIs.
+type Emote struct {
+	ID         string        `json:"id"`
+	Name       string        `json:"name"`
+	Images     EmoteImageSet `json:"images"`
+	Tier       string        `json:"tier"`
+	EmoteType  string        `json:"emote_type"`
+	EmoteSetID string        `json:"emote_set_id"`
+	OwnerID    string        `json:"owner_id"`
+	Format     []string      `json:"format"`
+	Scale      []string      `json:"scale"`
+	ThemeMode  []string      `json:"theme_mode"`
+}
+
+// GetEmotesResponse is the typed response for emote-list endpoints.
+type GetEmotesResponse struct {
+	Data       []Emote    `json:"data"`
+	Template   string     `json:"template"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // GetChattersParams filters Get Chatters requests.
@@ -74,6 +130,29 @@ type UserChatColor struct {
 // GetUserChatColorResponse is the typed response for Get User Chat Color.
 type GetUserChatColorResponse struct {
 	Data []UserChatColor `json:"data"`
+}
+
+// BadgeVersion describes one version of a chat badge set.
+type BadgeVersion struct {
+	ID          string  `json:"id"`
+	ImageURL1x  string  `json:"image_url_1x"`
+	ImageURL2x  string  `json:"image_url_2x"`
+	ImageURL4x  string  `json:"image_url_4x"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	ClickAction *string `json:"click_action"`
+	ClickURL    *string `json:"click_url"`
+}
+
+// ChatBadgeSet groups multiple badge versions under a set identifier.
+type ChatBadgeSet struct {
+	SetID    string         `json:"set_id"`
+	Versions []BadgeVersion `json:"versions"`
+}
+
+// GetChatBadgesResponse is the typed response for badge-list endpoints.
+type GetChatBadgesResponse struct {
+	Data []ChatBadgeSet `json:"data"`
 }
 
 // UpdateChatSettingsParams identifies which broadcaster chat settings to update.
@@ -160,6 +239,25 @@ type SendMessageResponse struct {
 	Data []SendMessageResult `json:"data"`
 }
 
+// SharedChatParticipant describes a participant channel in a shared chat session.
+type SharedChatParticipant struct {
+	BroadcasterID string `json:"broadcaster_id"`
+}
+
+// SharedChatSession describes the active shared chat session for a broadcaster.
+type SharedChatSession struct {
+	SessionID         string                  `json:"session_id"`
+	HostBroadcasterID string                  `json:"host_broadcaster_id"`
+	Participants      []SharedChatParticipant `json:"participants"`
+	CreatedAt         time.Time               `json:"created_at"`
+	UpdatedAt         time.Time               `json:"updated_at"`
+}
+
+// GetSharedChatSessionResponse is the typed response for Get Shared Chat Session.
+type GetSharedChatSessionResponse struct {
+	Data []SharedChatSession `json:"data"`
+}
+
 // GetSettings fetches the broadcaster's chat settings.
 func (s *ChatService) GetSettings(ctx context.Context, params GetChatSettingsParams) (*GetChatSettingsResponse, *Response, error) {
 	query := url.Values{}
@@ -172,6 +270,74 @@ func (s *ChatService) GetSettings(ctx context.Context, params GetChatSettingsPar
 	meta, err := s.client.Do(ctx, RawRequest{
 		Method: http.MethodGet,
 		Path:   "/chat/settings",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetChannelEmotes fetches custom emotes for a broadcaster.
+func (s *ChatService) GetChannelEmotes(ctx context.Context, params GetChannelEmotesParams) (*GetEmotesResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+
+	var resp GetEmotesResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/chat/emotes",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetGlobalEmotes fetches Twitch global emotes.
+func (s *ChatService) GetGlobalEmotes(ctx context.Context) (*GetEmotesResponse, *Response, error) {
+	var resp GetEmotesResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/chat/emotes/global",
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetEmoteSets fetches emotes for one or more emote sets.
+func (s *ChatService) GetEmoteSets(ctx context.Context, params GetEmoteSetsParams) (*GetEmotesResponse, *Response, error) {
+	query := url.Values{}
+	addRepeated(query, "emote_set_id", params.EmoteSetIDs)
+
+	var resp GetEmotesResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/chat/emotes/set",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetUserEmotes fetches emotes available to the authenticated user.
+func (s *ChatService) GetUserEmotes(ctx context.Context, params GetUserEmotesParams) (*GetEmotesResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("user_id", params.UserID)
+	if params.BroadcasterID != "" {
+		query.Set("broadcaster_id", params.BroadcasterID)
+	}
+	addCursorParams(query, params.CursorParams)
+
+	var resp GetEmotesResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/chat/emotes/user",
 		Query:  query,
 	}, &resp)
 	if err != nil {
@@ -216,6 +382,36 @@ func (s *ChatService) GetUserChatColor(ctx context.Context, params GetUserChatCo
 	return &resp, meta, nil
 }
 
+// GetChannelBadges fetches custom chat badges for a broadcaster.
+func (s *ChatService) GetChannelBadges(ctx context.Context, params GetChannelBadgesParams) (*GetChatBadgesResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+
+	var resp GetChatBadgesResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/chat/badges",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetGlobalBadges fetches Twitch global chat badges.
+func (s *ChatService) GetGlobalBadges(ctx context.Context) (*GetChatBadgesResponse, *Response, error) {
+	var resp GetChatBadgesResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/chat/badges/global",
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
 // UpdateSettings updates the broadcaster's chat settings.
 func (s *ChatService) UpdateSettings(ctx context.Context, params UpdateChatSettingsParams, req UpdateChatSettingsRequest) (*UpdateChatSettingsResponse, *Response, error) {
 	query := url.Values{}
@@ -228,6 +424,23 @@ func (s *ChatService) UpdateSettings(ctx context.Context, params UpdateChatSetti
 		Path:   "/chat/settings",
 		Query:  query,
 		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetSharedChatSession fetches the active shared chat session for a broadcaster.
+func (s *ChatService) GetSharedChatSession(ctx context.Context, params GetSharedChatSessionParams) (*GetSharedChatSessionResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+
+	var resp GetSharedChatSessionResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/shared_chat/session",
+		Query:  query,
 	}, &resp)
 	if err != nil {
 		return nil, meta, err

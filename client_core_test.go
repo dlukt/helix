@@ -159,6 +159,59 @@ func TestCreatorCoreServicesEncodeRequestsAndDecodeResponses(t *testing.T) {
 				}},
 				"pagination": map[string]any{"cursor": "next-channel-followers"},
 			})
+		case "/channels/commercial":
+			if got := r.Method; got != http.MethodPost {
+				t.Fatalf("method = %q, want POST", got)
+			}
+			var req helix.CommercialStartRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := req.BroadcasterID; got != "123" {
+				t.Fatalf("commercial broadcaster_id = %q, want 123", got)
+			}
+			if got := req.Length; got != 60 {
+				t.Fatalf("commercial length = %d, want 60", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"length":      60,
+					"message":     "commercial started successfully",
+					"retry_after": 480,
+				}},
+			})
+		case "/channels/ads":
+			if got := r.Method; got != http.MethodGet {
+				t.Fatalf("method = %q, want GET", got)
+			}
+			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+				t.Fatalf("ads broadcaster_id = %q, want 123", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"snooze_count":      2,
+					"snooze_refresh_at": "2024-04-11T12:20:00Z",
+					"next_ad_at":        "2024-04-11T12:30:00Z",
+					"duration":          90,
+					"last_ad_at":        "2024-04-11T12:00:00Z",
+					"preroll_free_time": 1200,
+				}},
+			})
+		case "/channels/ads/schedule/snooze":
+			if got := r.Method; got != http.MethodPost {
+				t.Fatalf("method = %q, want POST", got)
+			}
+			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+				t.Fatalf("snooze broadcaster_id = %q, want 123", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"snooze_count":      1,
+					"snooze_enabled":    true,
+					"snooze_refresh_at": "2024-04-11T12:50:00Z",
+					"next_ad_at":        "2024-04-11T12:45:00Z",
+				}},
+			})
 		case "/channels/vips":
 			switch r.Method {
 			case http.MethodGet:
@@ -406,6 +459,49 @@ func TestCreatorCoreServicesEncodeRequestsAndDecodeResponses(t *testing.T) {
 	}
 	if got := followersMeta.Pagination.Cursor; got != "next-channel-followers" {
 		t.Fatalf("Followers cursor = %q, want next-channel-followers", got)
+	}
+
+	commercialResp, _, err := client.Channels.StartCommercial(context.Background(), helix.CommercialStartRequest{
+		BroadcasterID: "123",
+		Length:        60,
+	})
+	if err != nil {
+		t.Fatalf("Channels.StartCommercial() error = %v", err)
+	}
+	if got := commercialResp.Data[0].RetryAfter; got != 480 {
+		t.Fatalf("Commercial retry_after = %d, want 480", got)
+	}
+	if got := commercialResp.Data[0].Message; got != "commercial started successfully" {
+		t.Fatalf("Commercial message = %q, want commercial started successfully", got)
+	}
+
+	adScheduleResp, _, err := client.Channels.GetAdSchedule(context.Background(), helix.GetAdScheduleParams{
+		BroadcasterID: "123",
+	})
+	if err != nil {
+		t.Fatalf("Channels.GetAdSchedule() error = %v", err)
+	}
+	if got := adScheduleResp.Data[0].Duration; got != 90 {
+		t.Fatalf("Ad schedule duration = %d, want 90", got)
+	}
+	if got := adScheduleResp.Data[0].NextAdAt; got != "2024-04-11T12:30:00Z" {
+		t.Fatalf("Ad schedule next_ad_at = %q, want 2024-04-11T12:30:00Z", got)
+	}
+
+	snoozeResp, _, err := client.Channels.SnoozeNextAd(context.Background(), helix.SnoozeNextAdParams{
+		BroadcasterID: "123",
+	})
+	if err != nil {
+		t.Fatalf("Channels.SnoozeNextAd() error = %v", err)
+	}
+	if got := snoozeResp.Data[0].SnoozeCount; got != 1 {
+		t.Fatalf("Snooze count = %d, want 1", got)
+	}
+	if got := snoozeResp.Data[0].SnoozeEnabled; !got {
+		t.Fatalf("Snooze enabled = %t, want true", got)
+	}
+	if got := snoozeResp.Data[0].NextAdAt; got != "2024-04-11T12:45:00Z" {
+		t.Fatalf("Snooze next_ad_at = %q, want 2024-04-11T12:45:00Z", got)
 	}
 
 	vipsResp, vipsMeta, err := client.Channels.GetVIPs(context.Background(), helix.GetVIPsParams{

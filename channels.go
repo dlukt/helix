@@ -37,6 +37,11 @@ type GetChannelFollowersParams struct {
 	UserID        string
 }
 
+// GetAdScheduleParams identifies the broadcaster whose ad schedule to fetch.
+type GetAdScheduleParams struct {
+	BroadcasterID string
+}
+
 // GetVIPsParams filters Get VIPs requests.
 type GetVIPsParams struct {
 	CursorParams
@@ -105,6 +110,57 @@ type GetChannelFollowersResponse struct {
 	Data       []ChannelFollower `json:"data"`
 	Pagination Pagination        `json:"pagination"`
 	Total      int               `json:"total"`
+}
+
+// CommercialStartRequest is the request body for Start Commercial.
+type CommercialStartRequest struct {
+	BroadcasterID string `json:"broadcaster_id"`
+	Length        int    `json:"length"`
+}
+
+// CommercialStart describes the result of a start-commercial request.
+type CommercialStart struct {
+	Length     int    `json:"length"`
+	Message    string `json:"message"`
+	RetryAfter int    `json:"retry_after"`
+}
+
+// StartCommercialResponse is the typed response for Start Commercial.
+type StartCommercialResponse struct {
+	Data []CommercialStart `json:"data"`
+}
+
+// AdSchedule describes the broadcaster's ad scheduling state.
+type AdSchedule struct {
+	SnoozeCount     int    `json:"snooze_count"`
+	SnoozeRefreshAt string `json:"snooze_refresh_at"`
+	NextAdAt        string `json:"next_ad_at"`
+	Duration        int    `json:"duration"`
+	LastAdAt        string `json:"last_ad_at"`
+	PrerollFreeTime int    `json:"preroll_free_time"`
+}
+
+// GetAdScheduleResponse is the typed response for Get Ad Schedule.
+type GetAdScheduleResponse struct {
+	Data []AdSchedule `json:"data"`
+}
+
+// SnoozeNextAdParams identifies the broadcaster whose next ad to snooze.
+type SnoozeNextAdParams struct {
+	BroadcasterID string
+}
+
+// SnoozeAdStatus describes the snooze state after pushing back the next ad.
+type SnoozeAdStatus struct {
+	SnoozeCount     int    `json:"snooze_count"`
+	SnoozeEnabled   bool   `json:"snooze_enabled"`
+	SnoozeRefreshAt string `json:"snooze_refresh_at"`
+	NextAdAt        string `json:"next_ad_at"`
+}
+
+// SnoozeNextAdResponse is the typed response for Snooze Next Ad.
+type SnoozeNextAdResponse struct {
+	Data []SnoozeAdStatus `json:"data"`
 }
 
 // VIP describes a VIP in a broadcaster's channel.
@@ -248,6 +304,54 @@ func (s *ChannelsService) GetFollowers(ctx context.Context, params GetChannelFol
 	meta, err := s.client.Do(ctx, RawRequest{
 		Method: http.MethodGet,
 		Path:   "/channels/followers",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// StartCommercial starts a commercial on the broadcaster's channel.
+func (s *ChannelsService) StartCommercial(ctx context.Context, req CommercialStartRequest) (*StartCommercialResponse, *Response, error) {
+	var resp StartCommercialResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodPost,
+		Path:   "/channels/commercial",
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// GetAdSchedule fetches ad schedule information for the broadcaster.
+func (s *ChannelsService) GetAdSchedule(ctx context.Context, params GetAdScheduleParams) (*GetAdScheduleResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+
+	var resp GetAdScheduleResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodGet,
+		Path:   "/channels/ads",
+		Query:  query,
+	}, &resp)
+	if err != nil {
+		return nil, meta, err
+	}
+	return &resp, meta, nil
+}
+
+// SnoozeNextAd pushes back the next automatic ad for the broadcaster.
+func (s *ChannelsService) SnoozeNextAd(ctx context.Context, params SnoozeNextAdParams) (*SnoozeNextAdResponse, *Response, error) {
+	query := url.Values{}
+	query.Set("broadcaster_id", params.BroadcasterID)
+
+	var resp SnoozeNextAdResponse
+	meta, err := s.client.Do(ctx, RawRequest{
+		Method: http.MethodPost,
+		Path:   "/channels/ads/schedule/snooze",
 		Query:  query,
 	}, &resp)
 	if err != nil {

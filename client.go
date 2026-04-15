@@ -41,19 +41,27 @@ type Client struct {
 	baseURL     string
 	userAgent   string
 
-	Users      *UsersService
-	Channels   *ChannelsService
-	Streams    *StreamsService
-	Chat       *ChatService
-	Moderation *ModerationService
-	Raids      *RaidsService
-	Schedule   *ScheduleService
-	Markers    *MarkersService
-	Games      *GamesService
-	Search     *SearchService
-	Clips      *ClipsService
-	Videos     *VideosService
-	EventSub   *EventSubService
+	Users         *UsersService
+	Channels      *ChannelsService
+	Streams       *StreamsService
+	Chat          *ChatService
+	Moderation    *ModerationService
+	Raids         *RaidsService
+	Schedule      *ScheduleService
+	Markers       *MarkersService
+	Games         *GamesService
+	Search        *SearchService
+	Analytics     *AnalyticsService
+	Bits          *BitsService
+	HypeTrain     *HypeTrainService
+	Polls         *PollsService
+	Predictions   *PredictionsService
+	Goals         *GoalsService
+	Charity       *CharityService
+	Subscriptions *SubscriptionsService
+	Clips         *ClipsService
+	Videos        *VideosService
+	EventSub      *EventSubService
 }
 
 // New creates a new Helix client.
@@ -89,6 +97,14 @@ func New(cfg Config) (*Client, error) {
 	c.Markers = &MarkersService{client: c}
 	c.Games = &GamesService{client: c}
 	c.Search = &SearchService{client: c}
+	c.Analytics = &AnalyticsService{client: c}
+	c.Bits = &BitsService{client: c}
+	c.HypeTrain = &HypeTrainService{client: c}
+	c.Polls = &PollsService{client: c}
+	c.Predictions = &PredictionsService{client: c}
+	c.Goals = &GoalsService{client: c}
+	c.Charity = &CharityService{client: c}
+	c.Subscriptions = &SubscriptionsService{client: c}
 	c.Clips = &ClipsService{client: c}
 	c.Videos = &VideosService{client: c}
 	c.EventSub = &EventSubService{client: c}
