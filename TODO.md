@@ -1,7 +1,7 @@
 # Checkpoint
 
 This file is no longer a stale list of missing pieces from the original plan.
-It is the current project status and roadmap as of 2026-04-13.
+It is the current project status and roadmap as of 2026-04-16.
 
 ## Current state
 
@@ -28,15 +28,36 @@ the Twitch Helix API, OAuth flows, and EventSub runtimes.
   - `Markers`
   - `Games`
   - `Search`
+  - `Analytics`
+  - `Bits`
+  - `HypeTrain`
+  - `Entitlements`
+  - `Whispers`
+  - `Teams`
+  - `ContentClassificationLabels`
+  - `Extensions`
+  - `ChannelPoints`
+  - `GuestStar`
+  - `Polls`
+  - `Predictions`
+  - `Goals`
+  - `Charity`
+  - `Subscriptions`
   - `Clips`
   - `Videos`
   - `EventSub`
-- Current Helix endpoint coverage is no longer just the bare read-path skeleton.
+- Current Helix endpoint coverage now tracks the live Twitch reference very closely.
+- The only obvious remaining Helix headings in the live reference are the deprecated
+  stream-tags endpoints, which Twitch documents as legacy behavior.
 - Notable currently implemented areas include:
   - `Users`: get users, update user, get authorization by user, get/block/unblock user blocks, get installed extensions, get active extensions, update active extensions
-  - `Channels`: get channel info, get channel editors, get VIPs, add/remove VIPs, update channel info
-  - `Chat`: get/update chat settings, get chatters, send announcements, send shoutouts, send chat messages, get/update user chat color, delete chat messages
-  - `Moderation`: get/add/remove moderators, get banned users, ban/unban users, get/add/remove blocked terms, get/update shield mode status
+  - `Channels`: get channel info, get channel editors, get followed channels, get channel followers, start commercials, get ad schedules, snooze ads, get/add/remove VIPs, update channel info
+  - `Chat`: get/update chat settings, get channel/global/user emotes, get emote sets, get channel/global badges, get chatters, get shared chat sessions, send announcements, send shoutouts, send chat messages, get/update user chat color, delete chat messages
+  - `Moderation`: get/add/remove moderators, get moderated channels, get banned users, ban/unban users, check AutoMod status, manage held AutoMod messages, get/update AutoMod settings, warn users, manage suspicious-user states, get/resolve unban requests, get/add/remove blocked terms, get/update shield mode status
+  - `Extensions`: get transactions, extension metadata, released extensions, live channels, hosted configuration, required configuration, JWT secrets, extension Bits products, extension chat, and PubSub messages
+  - `ChannelPoints`: get/create/update/delete custom rewards, get redemptions, update redemption status
+  - `GuestStar`: get/update channel settings, get/create/end sessions, manage invites, assign/update/delete slots, update slot settings
+  - `Polls`, `Predictions`, `Goals`, `Charity`, `Subscriptions`, `Analytics`, `Bits`, `HypeTrain`, `Entitlements`, `Whispers`, `Teams`, and `ContentClassificationLabels` all have typed service coverage with tests
   - `Clips`: get clips, create live clips, create clips from VODs, get clip download URLs
   - `Videos`: get videos, delete videos
   - plus the earlier `Streams`, `Search`, `Games`, `Schedule`, `Markers`, `Raids`, and `EventSub` slices already in place
@@ -198,30 +219,31 @@ This includes:
 
 ## What is still ahead
 
-The remaining work is now mostly about breadth and generation, not basic
-transport or runtime foundations.
+The remaining work is now mostly about maintenance, generator expansion, and API
+polish rather than broad missing Helix coverage.
 
-### 1. Expand Helix API endpoint coverage
+### 1. Keep Helix coverage aligned with the live Twitch reference
 
-This is now the clearest next track.
+The SDK is close to reference parity for non-deprecated Helix endpoints.
 
 Remaining work:
 
-- add more endpoints within existing services
-- add missing typed request parameter structs where current coverage is thin
-- add more representative response models
-- add missing service groups if needed after existing groups are filled out
+- periodically diff the live Twitch reference against the implemented surface
+- decide deliberately whether to ignore or expose deprecated endpoints like stream tags
+- smooth over naming mismatches where one SDK method currently spans multiple
+  closely related reference pages
+- continue tightening response models when Twitch documentation or examples are inconsistent
 
 Recommended order:
 
-1. deepen coverage inside already-created service groups
-2. only then add entirely new service groups
+1. keep tracking live reference additions and removals
+2. avoid adding deprecated surface unless there is a strong compatibility reason
+3. improve ergonomics only where it clearly helps SDK users
 
-High-value likely next slices:
+Notes:
 
-- finish more `Moderation` compact endpoints
-- continue `Users` and `Channels` families where read/write pairs are still incomplete
-- add adjacent `Clips`, `Videos`, or `Search` endpoints where the domain model is already established
+- the current Helix roadmap is no longer "add the obvious missing service group"
+- it is now more about staying current and improving usability
 
 ### 2. Keep EventSub coverage aligned with the live Twitch reference
 
@@ -235,6 +257,7 @@ Remaining work:
 - add newly documented EventSub subscription types and versions as they appear
 - keep typed API helpers, manifest entries, generated registry, and tests in
   sync for any new EventSub additions
+- continue hardening odd transport cases such as conduit and reconnect edge cases
 
 Notes:
 
@@ -274,7 +297,7 @@ If generator expansion proceeds, generated conditions are the cleaner direction.
 ### 5. Continue hardening test coverage around new surface area
 
 The foundation already has strong tests. The main remaining test work is tied to
-future feature additions.
+future feature additions and parity maintenance.
 
 Remaining work:
 
@@ -282,21 +305,22 @@ Remaining work:
 - add tests alongside each new EventSub family
 - keep generator verification strict as manifest scope grows
 - add golden or shape tests if generated Helix code is introduced
+- keep doc-driven edge cases covered where Twitch returns atypical payload shapes
+  such as string pagination or alternate field names
 
 ## Recommended roadmap
 
 ### Near term
 
-1. Continue filling in the remaining EventSub families.
+1. Keep the SDK synced with live Twitch Helix and EventSub changes.
 2. Keep additions small and review-friendly, one coherent family at a time.
-3. Avoid starting Helix generator expansion until EventSub parity is in a
-   clearly good place.
+3. Avoid adding deprecated Helix endpoints casually.
 
 ### Mid term
 
-1. Broaden endpoint coverage within the existing Helix service groups.
-2. Normalize request/response model patterns across services.
-3. Decide the manifest format needed for Helix code generation.
+1. Normalize request/response model patterns across services.
+2. Decide the manifest format needed for Helix code generation.
+3. Reduce hand-written API shape quirks where the docs are inconsistent.
 
 ### Long term
 
@@ -317,5 +341,5 @@ These are not blockers for the current checkpoint:
 - full EventSub parity in one giant change
 
 The current implementation is already a usable package. The roadmap from here is
-mainly about completing coverage and moving more of the SDK to manifest-driven
-generation.
+mainly about staying current, improving ergonomics, and moving more of the SDK
+to manifest-driven generation.

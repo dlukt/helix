@@ -24,6 +24,71 @@ func TestExtensionsServiceEncodesRequestsAndDecodesResponses(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 
 		switch r.URL.Path {
+		case "/bits/extensions":
+			switch r.Method {
+			case http.MethodGet:
+				if got := r.URL.Query().Get("should_include_all"); got != "true" {
+					t.Fatalf("should_include_all = %q, want true", got)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{
+						{
+							"sku":            "sku-1",
+							"cost":           map[string]any{"amount": 990, "type": "bits"},
+							"in_development": true,
+							"display_name":   "Rusty Crate 2",
+							"expiration":     "2024-04-20T09:10:13Z",
+							"is_broadcast":   false,
+						},
+						{
+							"sku":            "sku-2",
+							"cost":           map[string]any{"amount": 500, "type": "bits"},
+							"in_development": false,
+							"display_name":   "Non-Expiring Item",
+							"expiration":     "",
+							"is_broadcast":   true,
+						},
+					},
+				})
+			case http.MethodPut:
+				var req helix.UpdateExtensionBitsProductRequest
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Fatalf("Decode() error = %v", err)
+				}
+				if got := req.SKU; got != "sku-1" {
+					t.Fatalf("sku = %q, want sku-1", got)
+				}
+				if got := req.Cost.Amount; got != 990 {
+					t.Fatalf("cost.amount = %d, want 990", got)
+				}
+				if got := req.Cost.Type; got != "bits" {
+					t.Fatalf("cost.type = %q, want bits", got)
+				}
+				if got := req.DisplayName; got != "Rusty Crate 2" {
+					t.Fatalf("display_name = %q, want Rusty Crate 2", got)
+				}
+				if req.InDevelopment == nil || !*req.InDevelopment {
+					t.Fatalf("in_development = %#v, want true", req.InDevelopment)
+				}
+				if req.IsBroadcast == nil || *req.IsBroadcast {
+					t.Fatalf("is_broadcast = %#v, want false", req.IsBroadcast)
+				}
+				if req.Expiration == nil || !req.Expiration.UTC().Equal(time.Date(2024, 4, 20, 9, 10, 13, 0, time.UTC)) {
+					t.Fatalf("expiration = %#v, want 2024-04-20T09:10:13Z", req.Expiration)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"sku":            "sku-1",
+						"cost":           map[string]any{"amount": 990, "type": "bits"},
+						"in_development": true,
+						"display_name":   "Rusty Crate 2",
+						"expiration":     "",
+						"is_broadcast":   false,
+					}},
+				})
+			default:
+				t.Fatalf("unexpected method for /bits/extensions: %s", r.Method)
+			}
 		case "/extensions/transactions":
 			if got := r.Method; got != http.MethodGet {
 				t.Fatalf("method = %q, want GET", got)
@@ -122,6 +187,113 @@ func TestExtensionsServiceEncodesRequestsAndDecodesResponses(t *testing.T) {
 					"allowlisted_panel_urls":  []string{"https://example.com/panel"},
 				}},
 			})
+		case "/extensions/released":
+			if got := r.Method; got != http.MethodGet {
+				t.Fatalf("method = %q, want GET", got)
+			}
+			if got := r.URL.Query().Get("extension_id"); got != "ext-1" {
+				t.Fatalf("extension_id = %q, want ext-1", got)
+			}
+			if got := r.URL.Query().Get("extension_version"); got != "1.2.3" {
+				t.Fatalf("extension_version = %q, want 1.2.3", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"author_name":                 "Dev Released",
+					"bits_enabled":                true,
+					"can_install":                 true,
+					"configuration_location":      "hosted",
+					"description":                 "Released extension",
+					"eula_tos_url":                "https://example.com/eula",
+					"has_chat_support":            true,
+					"icon_url":                    "https://example.com/icon.png",
+					"icon_urls":                   map[string]any{"100x100": "https://example.com/icon-100.png"},
+					"id":                          "ext-1",
+					"name":                        "Released Extension",
+					"privacy_policy_url":          "https://example.com/privacy",
+					"request_identity_link":       true,
+					"screenshot_urls":             []string{"https://example.com/released.png"},
+					"state":                       "Released",
+					"subscriptions_support_level": "optional",
+					"summary":                     "released summary",
+					"support_email":               "released@example.com",
+					"version":                     "1.2.3",
+					"viewer_summary":              "released viewer summary",
+					"views": map[string]any{
+						"mobile": map[string]any{
+							"viewer_url": "https://example.com/mobile",
+						},
+					},
+					"allowlisted_config_urls": []string{"https://example.com/config"},
+					"allowlisted_panel_urls":  []string{"https://example.com/panel"},
+				}},
+			})
+		case "/extensions/live":
+			if got := r.Method; got != http.MethodGet {
+				t.Fatalf("method = %q, want GET", got)
+			}
+			if got := r.URL.Query().Get("extension_id"); got != "ext-1" {
+				t.Fatalf("extension_id = %q, want ext-1", got)
+			}
+			if got := r.URL.Query().Get("first"); got != "5" {
+				t.Fatalf("first = %q, want 5", got)
+			}
+			if got := r.URL.Query().Get("after"); got != "cursor-live-1" {
+				t.Fatalf("after = %q, want cursor-live-1", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{
+					"broadcaster_id":   "123",
+					"broadcaster_name": "Caster",
+					"game_name":        "Chess",
+					"game_id":          "509658",
+					"title":            "Testing the extension live",
+				}},
+				"pagination": "cursor-live-2",
+			})
+		case "/extensions/jwt/secrets":
+			switch r.Method {
+			case http.MethodGet:
+				if got := r.URL.Query().Get("extension_id"); got != "ext-1" {
+					t.Fatalf("extension_id = %q, want ext-1", got)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"format_version": 1,
+						"secrets": []map[string]any{{
+							"content":    "secret-1",
+							"active_at":  "2024-04-15T11:00:00Z",
+							"expires_at": "2124-04-15T11:00:00Z",
+						}},
+					}},
+				})
+			case http.MethodPost:
+				if got := r.URL.Query().Get("extension_id"); got != "ext-1" {
+					t.Fatalf("extension_id = %q, want ext-1", got)
+				}
+				if got := r.URL.Query().Get("delay"); got != "600" {
+					t.Fatalf("delay = %q, want 600", got)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"data": []map[string]any{{
+						"format_version": 1,
+						"secrets": []map[string]any{
+							{
+								"content":    "old-secret",
+								"active_at":  "2024-04-15T11:00:00Z",
+								"expires_at": "2024-04-15T11:10:00Z",
+							},
+							{
+								"content":    "new-secret",
+								"active_at":  "2024-04-15T11:10:00Z",
+								"expires_at": "2124-04-15T11:10:00Z",
+							},
+						},
+					}},
+				})
+			default:
+				t.Fatalf("unexpected method for /extensions/jwt/secrets: %s", r.Method)
+			}
 		case "/extensions/configurations":
 			switch r.Method {
 			case http.MethodGet:
@@ -234,6 +406,27 @@ func TestExtensionsServiceEncodesRequestsAndDecodesResponses(t *testing.T) {
 				t.Fatalf("message = %q, want refresh json", got)
 			}
 			w.WriteHeader(http.StatusNoContent)
+		case "/extensions/chat":
+			if got := r.Method; got != http.MethodPost {
+				t.Fatalf("method = %q, want POST", got)
+			}
+			if got := r.URL.Query().Get("broadcaster_id"); got != "123" {
+				t.Fatalf("broadcaster_id = %q, want 123", got)
+			}
+			var req helix.SendExtensionChatMessageRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := req.Text; got != "Hello from extension" {
+				t.Fatalf("text = %q, want Hello from extension", got)
+			}
+			if got := req.ExtensionID; got != "ext-1" {
+				t.Fatalf("extension_id = %q, want ext-1", got)
+			}
+			if got := req.ExtensionVersion; got != "1.2.3" {
+				t.Fatalf("extension_version = %q, want 1.2.3", got)
+			}
+			w.WriteHeader(http.StatusNoContent)
 		default:
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -246,6 +439,26 @@ func TestExtensionsServiceEncodesRequestsAndDecodesResponses(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
+	}
+
+	includeAll := true
+	bitsProductsResp, _, err := client.Extensions.GetBitsProducts(context.Background(), helix.GetExtensionBitsProductsParams{
+		ShouldIncludeAll: &includeAll,
+	})
+	if err != nil {
+		t.Fatalf("Extensions.GetBitsProducts() error = %v", err)
+	}
+	if got := bitsProductsResp.Data[0].DisplayName; got != "Rusty Crate 2" {
+		t.Fatalf("Bits product display_name = %q, want Rusty Crate 2", got)
+	}
+	if got := bitsProductsResp.Data[0].Expiration; got == nil || !got.UTC().Equal(time.Date(2024, 4, 20, 9, 10, 13, 0, time.UTC)) {
+		t.Fatalf("Bits product expiration = %#v, want 2024-04-20T09:10:13Z", got)
+	}
+	if got := len(bitsProductsResp.Data); got != 2 {
+		t.Fatalf("Bits products len = %d, want 2", got)
+	}
+	if got := bitsProductsResp.Data[1].Expiration; got != nil {
+		t.Fatalf("Non-expiring bits product expiration = %#v, want nil", got)
 	}
 
 	transactionsResp, transactionsMeta, err := client.Extensions.GetTransactions(context.Background(), helix.GetExtensionTransactionsParams{
@@ -300,6 +513,64 @@ func TestExtensionsServiceEncodesRequestsAndDecodesResponses(t *testing.T) {
 	}
 	if got := component.ZoomPixels; got != 800 {
 		t.Fatalf("Component zoom_pixels = %d, want 800", got)
+	}
+
+	releasedResp, _, err := client.Extensions.GetReleased(context.Background(), helix.GetExtensionParams{
+		ExtensionID:      "ext-1",
+		ExtensionVersion: "1.2.3",
+	})
+	if err != nil {
+		t.Fatalf("Extensions.GetReleased() error = %v", err)
+	}
+	if got := releasedResp.Data[0].Name; got != "Released Extension" {
+		t.Fatalf("Released extension name = %q, want Released Extension", got)
+	}
+	if got := releasedResp.Data[0].Views.Mobile.ViewerURL; got != "https://example.com/mobile" {
+		t.Fatalf("Released mobile viewer_url = %q, want https://example.com/mobile", got)
+	}
+
+	liveChannelsResp, liveChannelsMeta, err := client.Extensions.GetLiveChannels(context.Background(), helix.GetExtensionLiveChannelsParams{
+		CursorParams: helix.CursorParams{After: "cursor-live-1", First: 5},
+		ExtensionID:  "ext-1",
+	})
+	if err != nil {
+		t.Fatalf("Extensions.GetLiveChannels() error = %v", err)
+	}
+	if got := liveChannelsResp.Data[0].GameName; got != "Chess" {
+		t.Fatalf("Live channel game_name = %q, want Chess", got)
+	}
+	if got := liveChannelsResp.Pagination.Cursor; got != "cursor-live-2" {
+		t.Fatalf("Live channels response cursor = %q, want cursor-live-2", got)
+	}
+	if got := liveChannelsMeta.Pagination.Cursor; got != "cursor-live-2" {
+		t.Fatalf("Live channels meta cursor = %q, want cursor-live-2", got)
+	}
+
+	secretsResp, _, err := client.Extensions.GetSecrets(context.Background(), helix.GetExtensionSecretsParams{
+		ExtensionID: "ext-1",
+	})
+	if err != nil {
+		t.Fatalf("Extensions.GetSecrets() error = %v", err)
+	}
+	if got := secretsResp.Data[0].Secrets[0].Content; got != "secret-1" {
+		t.Fatalf("Secrets content = %q, want secret-1", got)
+	}
+	if got := secretsResp.Data[0].Secrets[0].ActiveAt.UTC(); !got.Equal(time.Date(2024, 4, 15, 11, 0, 0, 0, time.UTC)) {
+		t.Fatalf("Secret active_at = %v, want 2024-04-15T11:00:00Z", got)
+	}
+
+	createdSecretResp, _, err := client.Extensions.CreateSecret(context.Background(), helix.CreateExtensionSecretParams{
+		ExtensionID: "ext-1",
+		Delay:       600,
+	})
+	if err != nil {
+		t.Fatalf("Extensions.CreateSecret() error = %v", err)
+	}
+	if got := len(createdSecretResp.Data[0].Secrets); got != 2 {
+		t.Fatalf("Created secret len = %d, want 2", got)
+	}
+	if got := createdSecretResp.Data[0].Secrets[1].Content; got != "new-secret" {
+		t.Fatalf("New secret content = %q, want new-secret", got)
 	}
 
 	configResp, _, err := client.Extensions.GetConfigurationSegment(context.Background(), helix.GetExtensionConfigurationSegmentParams{
@@ -381,4 +652,44 @@ func TestExtensionsServiceEncodesRequestsAndDecodesResponses(t *testing.T) {
 	if got := pubsubMeta.StatusCode; got != http.StatusNoContent {
 		t.Fatalf("SendPubSubMessage status = %d, want %d", got, http.StatusNoContent)
 	}
+
+	inDevelopment := true
+	isBroadcast := false
+	bitsProductResp, _, err := client.Extensions.UpdateBitsProduct(context.Background(), helix.UpdateExtensionBitsProductRequest{
+		SKU:           "sku-1",
+		Cost:          helix.ExtensionTransactionCost{Amount: 990, Type: "bits"},
+		DisplayName:   "Rusty Crate 2",
+		InDevelopment: &inDevelopment,
+		Expiration:    timePtr(time.Date(2024, 4, 20, 9, 10, 13, 0, time.UTC)),
+		IsBroadcast:   &isBroadcast,
+	})
+	if err != nil {
+		t.Fatalf("Extensions.UpdateBitsProduct() error = %v", err)
+	}
+	if got := bitsProductResp.Data[0].SKU; got != "sku-1" {
+		t.Fatalf("Updated bits product sku = %q, want sku-1", got)
+	}
+	if got := bitsProductResp.Data[0].Cost.Amount; got != 990 {
+		t.Fatalf("Updated bits product cost.amount = %d, want 990", got)
+	}
+	if got := bitsProductResp.Data[0].Expiration; got != nil {
+		t.Fatalf("Updated bits product expiration = %#v, want nil", got)
+	}
+
+	chatMeta, err := client.Extensions.SendChatMessage(context.Background(), helix.SendExtensionChatMessageRequest{
+		BroadcasterID:    "123",
+		Text:             "Hello from extension",
+		ExtensionID:      "ext-1",
+		ExtensionVersion: "1.2.3",
+	})
+	if err != nil {
+		t.Fatalf("Extensions.SendChatMessage() error = %v", err)
+	}
+	if got := chatMeta.StatusCode; got != http.StatusNoContent {
+		t.Fatalf("SendChatMessage status = %d, want %d", got, http.StatusNoContent)
+	}
+}
+
+func timePtr(v time.Time) *time.Time {
+	return &v
 }
